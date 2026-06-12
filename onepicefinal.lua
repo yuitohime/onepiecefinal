@@ -1,5 +1,5 @@
 -- =========================================================================
--- [ULTIMATE MASTER] YUIHUB V20 - FIX AUTO LOAD, UNDERGROUND CAM & BOUNTY
+-- [ULTIMATE MASTER] YUIHUB V21 - WIGGLE CHEST, ESP TRACERS, AUTO FRUIT
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -11,10 +11,11 @@ local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
 local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
-local TargetGui = (gethui and pcall(gethui) and gethui()) or game:GetService("CoreGui")
+local TargetGui = (gethui and pcall(gethui) and gethui()) or CoreGui
 if not pcall(function() local _ = TargetGui.Name end) then TargetGui = LocalPlayer:WaitForChild("PlayerGui") end
 for _, gui in pairs(TargetGui:GetChildren()) do if gui.Name == "YuiHub" then gui:Destroy() end end
 
@@ -24,21 +25,20 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 _G.Yui = {
-    AutoFarm = false, SelectedMobs = {},
-    SelectedWeapon = "None", FastAttack = false,
+    AutoFarm = false, SelectedMobs = {}, SelectedWeapon = "None", FastAttack = false, AutoClick = false,
     AttackDist = 5, AttackPos = "Above", AutoSpawn = false,
     AutoSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
-    HoldSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
-    HoldTime = 1,
+    HoldSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false}, HoldTime = 1,
     AutoHaki = {E=false, R=false, T=false},
-    SelectedQuest = "", AutoQuest = false, AutoAcceptQuest = false,
-    CollectChest = false, ChestDelay = 60, CollectBarrel = false, BarrelDelay = 60,
+    SelectedNormalQuest = "", AutoNormalQuest = false,
+    SelectedDailyQuest = "", AutoDailyQuest = false, AutoAcceptQuest = false,
+    CollectChest = false, CollectBarrel = false, CollectSpeed = 0.2, AutoFruit = false,
     AutoJuice = false, JuiceDelay = 5, AutoDrink = false, DrinkDelay = 1,
     AutoEatApple = false, AppleDelay = 3, 
     WalkSpeed = 16, EnableWS = false, JumpPower = 50, EnableJP = false, 
     Fly = false, FlySpeed = 50, Noclip = false, WalkOnWater = false, InfJump = false,
     AutoGetRod = false, AutoFish = false, AutoPin = false,
-    TargetPlayer = "None", ESPPlayer = false, Spectate = false,
+    TargetPlayer = "None", AutoHunt = false, HuntDist = 5, ESPPlayer = false, Spectate = false,
     AutoRejoin = false, AutoExecute = false, ExecuteScript = "", 
     AutoLoadConfig = false, AutoLoadName = "", ConfigName = "Default",
     AutoHop = false, HopDelay = 3, ThemeColor = "Pink"
@@ -52,12 +52,8 @@ local CoreFile = ConfigFolder .. "/CoreSettings.json"
 local function SaveCoreSettings()
     if writefile and HttpService then
         writefile(CoreFile, HttpService:JSONEncode({
-            AutoRejoin = _G.Yui.AutoRejoin, 
-            AutoExecute = _G.Yui.AutoExecute,
-            ExecuteScript = _G.Yui.ExecuteScript,
-            AutoLoadConfig = _G.Yui.AutoLoadConfig,
-            AutoLoadName = _G.Yui.AutoLoadName,
-            LastConfig = _G.Yui.ConfigName
+            AutoRejoin = _G.Yui.AutoRejoin, AutoExecute = _G.Yui.AutoExecute, ExecuteScript = _G.Yui.ExecuteScript,
+            AutoLoadConfig = _G.Yui.AutoLoadConfig, AutoLoadName = _G.Yui.AutoLoadName, LastConfig = _G.Yui.ConfigName
         }))
     end
 end
@@ -84,7 +80,6 @@ local HakiStates = {E = false, R = false}
 
 LocalPlayer.CharacterAdded:Connect(function() HakiStates.E = false HakiStates.R = false end)
 
--- UI Cảm ứng siêu nhạy
 local function BindTap(element, callback)
     local touchStart, startPos = 0, Vector2.new(0,0)
     element.InputBegan:Connect(function(input)
@@ -119,7 +114,6 @@ local function MakeDraggable(dragArea, targetFrame)
     end)
 end
 
--- Bảng Màu
 local ThemeColors = {
     Pink = Color3.fromRGB(255, 85, 127), Red = Color3.fromRGB(255, 60, 60),
     Blue = Color3.fromRGB(80, 150, 255), Green = Color3.fromRGB(80, 255, 120),
@@ -139,6 +133,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "YuiHub" ScreenGui.Parent = TargetGui ScreenGui.ResetOnSpawn = false
 
 local ESPFolder = Instance.new("Folder") ESPFolder.Name = "YuiESPFolder" ESPFolder.Parent = CoreGui
+local ESPTracers = {}
 
 local OpenIcon = Instance.new("ImageButton", ScreenGui)
 OpenIcon.Size = UDim2.new(0, 45, 0, 45) OpenIcon.Position = UDim2.new(0, 15, 0.5, -22) OpenIcon.BackgroundColor3 = Theme.HeaderBg
@@ -148,7 +143,7 @@ local OpenStroke = Instance.new("UIStroke", OpenIcon) OpenStroke.Color = Theme.A
 MakeDraggable(OpenIcon, OpenIcon)
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 540, 0, 360) MainFrame.Position = UDim2.new(0.5, -270, 0.5, -180) MainFrame.BackgroundColor3 = Theme.MainBg MainFrame.BorderSizePixel = 0 MainFrame.Active = true MainFrame.Visible = false
+MainFrame.Size = UDim2.new(0, 560, 0, 380) MainFrame.Position = UDim2.new(0.5, -280, 0.5, -190) MainFrame.BackgroundColor3 = Theme.MainBg MainFrame.BorderSizePixel = 0 MainFrame.Active = true MainFrame.Visible = false
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8) Instance.new("UIStroke", MainFrame).Color = Theme.Stroke
 MakeDraggable(MainFrame, MainFrame)
 
@@ -162,11 +157,11 @@ local BlueLine = Instance.new("Frame", Header) BlueLine.Size = UDim2.new(0, 3, 0
 table.insert(DynamicUIElements, {Obj = BlueLine, Prop = "BackgroundColor3"})
 
 local WelcomeText = Instance.new("TextLabel", Header) WelcomeText.Size = UDim2.new(0, 150, 0, 15) WelcomeText.Position = UDim2.new(0, 25, 0, 15) WelcomeText.BackgroundTransparency = 1 WelcomeText.Text = "Ultimate Script Hub" WelcomeText.TextColor3 = Theme.TextSub WelcomeText.Font = Enum.Font.Gotham WelcomeText.TextSize = 10 WelcomeText.TextXAlignment = Enum.TextXAlignment.Left
-local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left
+local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V21" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left
 table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
 
 local CloseBtn = Instance.new("TextButton", Header) CloseBtn.Size = UDim2.new(0, 30, 0, 30) CloseBtn.Position = UDim2.new(1, -35, 0, 15) CloseBtn.BackgroundTransparency = 1 CloseBtn.Text = "✕" CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80) CloseBtn.Font = Enum.Font.GothamBold CloseBtn.TextSize = 14
-BindTap(CloseBtn, function() ScreenGui:Destroy() ESPFolder:Destroy() end)
+BindTap(CloseBtn, function() ScreenGui:Destroy() ESPFolder:Destroy() for _, line in pairs(ESPTracers) do line:Remove() end end)
 
 local Sidebar = Instance.new("ScrollingFrame", MainFrame)
 Sidebar.Size = UDim2.new(0, 130, 1, -85) Sidebar.Position = UDim2.new(0, 10, 0, 75) Sidebar.BackgroundTransparency = 1 Sidebar.ScrollBarThickness = 0
@@ -216,20 +211,15 @@ local function CreateToggle(labelText, default, parentBox, callback)
 
     local isOn = default
     BindTap(Bg, function()
-        isOn = not isOn
-        TweenService:Create(Knob, TweenInfo.new(0.2), {Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
-        TweenService:Create(Bg, TweenInfo.new(0.2), {BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg}):Play()
-        callback(isOn)
+        isOn = not isOn TweenService:Create(Knob, TweenInfo.new(0.2), {Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
+        TweenService:Create(Bg, TweenInfo.new(0.2), {BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg}):Play() callback(isOn)
     end)
     return function(state)
-        isOn = state
-        Knob.Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)
-        Bg.BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg
-        callback(isOn)
+        isOn = state Knob.Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6) Bg.BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg callback(isOn)
     end
 end
 
-local function CreateSlider(labelText, min, max, default, parentBox, callback)
+local function CreateSlider(labelText, min, max, default, parentBox, callback, allowFloat)
     local Frame = Instance.new("Frame", parentBox) Frame.Size = UDim2.new(1, 0, 0, 35) Frame.BackgroundTransparency = 1
     local Label = Instance.new("TextLabel", Frame) Label.Size = UDim2.new(1, 0, 0, 15) Label.BackgroundTransparency = 1 Label.Text = labelText Label.TextColor3 = Theme.TextTitle Label.Font = Enum.Font.GothamBold Label.TextSize = 10 Label.TextXAlignment = Enum.TextXAlignment.Left
     local ValLabel = Instance.new("TextLabel", Frame) ValLabel.Size = UDim2.new(1, 0, 0, 15) ValLabel.BackgroundTransparency = 1 ValLabel.Text = tostring(default) ValLabel.TextColor3 = Theme.TextSub ValLabel.Font = Enum.Font.Gotham ValLabel.TextSize = 10 ValLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -241,7 +231,9 @@ local function CreateSlider(labelText, min, max, default, parentBox, callback)
     local drag = false
     local function update(input)
         local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-        Fill.Size = UDim2.new(rel, 0, 1, 0) local val = math.floor(min + (max - min) * rel)
+        Fill.Size = UDim2.new(rel, 0, 1, 0) 
+        local val = min + (max - min) * rel
+        if not allowFloat then val = math.floor(val) else val = math.floor(val * 10) / 10 end
         ValLabel.Text = tostring(val) callback(val)
     end
     Knob.InputBegan:Connect(function(inp) if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then drag = true end end)
@@ -282,11 +274,7 @@ local function CreateDropdown(labelStr, defaultStr, parentBox, callback)
     local SearchBox = Instance.new("TextBox", FloatFrame) SearchBox.Size = UDim2.new(1, -10, 0, 25) SearchBox.BackgroundColor3 = Theme.MainBg SearchBox.TextColor3 = Theme.TextTitle SearchBox.PlaceholderText = "Search..." SearchBox.Text = "" SearchBox.Font = Enum.Font.Gotham SearchBox.TextSize = 10 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0,4)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local q = string.lower(SearchBox.Text)
-        for _, v in pairs(FloatFrame:GetChildren()) do
-            if v:IsA("TextButton") then
-                if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end
-            end
-        end
+        for _, v in pairs(FloatFrame:GetChildren()) do if v:IsA("TextButton") then if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end end end
     end)
 
     local function populate(itemList)
@@ -310,8 +298,7 @@ local function CreateMultiDropdown(labelStr, parentBox, globalList)
     
     local FloatFrame = Instance.new("ScrollingFrame", ScreenGui) FloatFrame.Size = UDim2.new(0, 160, 0, 150) FloatFrame.BackgroundColor3 = Theme.HeaderBg FloatFrame.ZIndex = 999 FloatFrame.Visible = false FloatFrame.ScrollBarThickness = 2 Instance.new("UICorner", FloatFrame).CornerRadius = UDim.new(0, 4) 
     local Stroke = Instance.new("UIStroke", FloatFrame) Stroke.Color = Theme.Accent table.insert(DynamicUIElements, {Obj = Stroke, Prop = "Color"})
-    local listLayout = Instance.new("UIListLayout", FloatFrame)
-    table.insert(AllDropdowns, FloatFrame)
+    local listLayout = Instance.new("UIListLayout", FloatFrame) table.insert(AllDropdowns, FloatFrame)
     RunService.RenderStepped:Connect(function() if FloatFrame.Visible then FloatFrame.Position = UDim2.new(0, Btn.AbsolutePosition.X - (160 - Btn.AbsoluteSize.X), 0, Btn.AbsolutePosition.Y + Btn.AbsoluteSize.Y + 2) end end)
 
     local isOpen = false
@@ -320,11 +307,7 @@ local function CreateMultiDropdown(labelStr, parentBox, globalList)
     local SearchBox = Instance.new("TextBox", FloatFrame) SearchBox.Size = UDim2.new(1, -10, 0, 25) SearchBox.BackgroundColor3 = Theme.MainBg SearchBox.TextColor3 = Theme.TextTitle SearchBox.PlaceholderText = "Search..." SearchBox.Text = "" SearchBox.Font = Enum.Font.Gotham SearchBox.TextSize = 10 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0,4)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local q = string.lower(SearchBox.Text)
-        for _, v in pairs(FloatFrame:GetChildren()) do
-            if v:IsA("TextButton") then
-                if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end
-            end
-        end
+        for _, v in pairs(FloatFrame:GetChildren()) do if v:IsA("TextButton") then if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end end end
     end)
 
     local function populate(itemList)
@@ -345,11 +328,9 @@ end
 
 local function UpdateThemeColor(colName)
     if ThemeColors[colName] then
-        _G.Yui.ThemeColor = colName
-        Theme.Accent = ThemeColors[colName]
+        _G.Yui.ThemeColor = colName Theme.Accent = ThemeColors[colName]
         for _, item in pairs(DynamicUIElements) do
-            if item.IsToggle then
-                if item.Obj.BackgroundColor3 ~= Theme.MainBg then item.Obj[item.Prop] = Theme.Accent end
+            if item.IsToggle then if item.Obj.BackgroundColor3 ~= Theme.MainBg then item.Obj[item.Prop] = Theme.Accent end
             else item.Obj[item.Prop] = Theme.Accent end
         end
     end
@@ -359,8 +340,8 @@ end
 -- MENU TABS
 -- ============================
 local MainL, MainR = CreateTab("Main Farm", true)
-local QuestL, QuestR = CreateTab("Quest", false)
-local SkillL, SkillR = CreateTab("Skills", false)
+local QuestL, QuestR = CreateTab("Quests", false)
+local SkillL, SkillR = CreateTab("Skills & Haki", false)
 local ResL, ResR = CreateTab("Resources", false)
 local PlayerL, PlayerR = CreateTab("Player", false)
 local BountyL, BountyR = CreateTab("Bounty & PvP", false)
@@ -393,10 +374,7 @@ CreateButton("Refresh Mobs (Level Only)", FarmSetBox, function()
     table.sort(list) UpdateMultiMob(list)
 end)
 Setters.AutoFarm = CreateToggle("Auto Farm Mobs", false, FarmSetBox, function(v) _G.Yui.AutoFarm = v end)
-Setters.AutoHopMain = CreateToggle("Auto Hop Server (Min 3s)", false, FarmSetBox, function(v) 
-    _G.Yui.AutoHop = v
-    if Setters.AutoHopServer then Setters.AutoHopServer(v) end
-end)
+Setters.AutoHopMain = CreateToggle("Auto Hop Server", false, FarmSetBox, function(v) _G.Yui.AutoHop = v if Setters.AutoHopServer then Setters.AutoHopServer(v) end end)
 
 local AtkBox = CreateSection("Attack Setting", MainL)
 local UpdateWepDrop, SetWepDrop = CreateDropdown("Weapon", "None", AtkBox, function(v) _G.Yui.SelectedWeapon = v end)
@@ -406,39 +384,43 @@ CreateButton("Refresh Weapons", AtkBox, function()
     for _, v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("Tool") then table.insert(t, v.Name) end end
     UpdateWepDrop(t)
 end)
-Setters.FastAttack = CreateToggle("Auto Fast Attack (Ngầm)", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
+Setters.AutoClick = CreateToggle("Auto Mouse Click", false, AtkBox, function(v) _G.Yui.AutoClick = v end)
+Setters.FastAttack = CreateToggle("Auto Fast Attack (Silent)", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
 
 local ConfigBox = CreateSection("Attack Position", MainR)
 local UpdatePosDropdown, SetPosDrop = CreateDropdown("Position", "Above", ConfigBox, function(v) _G.Yui.AttackPos = v end)
 UpdatePosDropdown({"Above", "Below", "Behind", "Front"})
 Setters.AttackDist = CreateSlider("Distance", 1, 25, 5, ConfigBox, function(v) _G.Yui.AttackDist = v end)
 
--- QUEST & HAKI
-local QuestBox = CreateSection("Auto Quest", QuestL)
-Setters.AutoQuest = CreateToggle("Auto Complete Quest", false, QuestBox, function(v) _G.Yui.AutoQuest = v end)
-Setters.AutoAcceptQuest = CreateToggle("Auto Accept Quest GUI", false, QuestBox, function(v) _G.Yui.AutoAcceptQuest = v end)
-local UpdateQuestDrop, SetQuestDrop = CreateDropdown("Target Quest NPC", "None", QuestBox, function(v) _G.Yui.SelectedQuest = v end)
-CreateButton("Refresh Quest & Daily NPCs", QuestBox, function() 
-    local list, temp = {}, {}
+-- QUEST
+local QuestBox = CreateSection("Normal Quest", QuestL)
+Setters.AutoNormalQuest = CreateToggle("Auto Normal Quest", false, QuestBox, function(v) _G.Yui.AutoNormalQuest = v end)
+local UpdateNormalDrop, SetNormalDrop = CreateDropdown("Target NPC", "None", QuestBox, function(v) _G.Yui.SelectedNormalQuest = v end)
+
+local DailyBox = CreateSection("Daily Quest", QuestR)
+Setters.AutoDailyQuest = CreateToggle("Auto Daily Quest", false, DailyBox, function(v) _G.Yui.AutoDailyQuest = v end)
+local UpdateDailyDrop, SetDailyDrop = CreateDropdown("Target Daily NPC", "None", DailyBox, function(v) _G.Yui.SelectedDailyQuest = v end)
+
+Setters.AutoAcceptQuest = CreateToggle("Auto Accept Any Quest GUI", false, QuestL, function(v) _G.Yui.AutoAcceptQuest = v end)
+
+CreateButton("Refresh All Quests", QuestL, function() 
+    local nList, dList, tempN, tempD = {}, {}, {}, {}
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            local pN = string.lower(obj.Parent and obj.Parent.Name or "")
-            local oN = string.lower(obj.Name)
-            if string.find(pN, "quest") or string.find(pN, "daily") or string.find(oN, "quest") or string.find(oN, "daily") then
-                if not temp[obj.Name] then temp[obj.Name] = true table.insert(list, obj.Name) end
+            local pN, oN = string.lower(obj.Parent and obj.Parent.Name or ""), string.lower(obj.Name)
+            if string.find(pN, "quest") or string.find(oN, "quest") then
+                if not tempN[obj.Name] then tempN[obj.Name] = true table.insert(nList, obj.Name) end
+            elseif string.find(pN, "daily") or string.find(oN, "daily") then
+                if not tempD[obj.Name] then tempD[obj.Name] = true table.insert(dList, obj.Name) end
             end
         end
     end
-    table.sort(list) UpdateQuestDrop(list)
+    table.sort(nList) table.sort(dList)
+    UpdateNormalDrop(nList) UpdateDailyDrop(dList)
 end)
 
-local HakiBox = CreateSection("Auto Haki", QuestR)
-Setters.HakiE = CreateToggle("Armament Haki [E]", false, HakiBox, function(v) _G.Yui.AutoHaki.E = v end)
-Setters.HakiR = CreateToggle("Observation Haki [R]", false, HakiBox, function(v) _G.Yui.AutoHaki.R = v end)
-Setters.HakiT = CreateToggle("Conqueror Haki [T] (Spam)", false, HakiBox, function(v) _G.Yui.AutoHaki.T = v end)
-
--- SKILLS
-local WepSkillBox = CreateSection("Normal Auto Skills", SkillL)
+-- SKILLS & HAKI
+local WepSkillBox = CreateSection("Normal Skills", SkillL)
 Setters.SkillR = CreateToggle("Auto Skill [R]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.R = v end) 
 Setters.SkillZ = CreateToggle("Auto Skill [Z]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.Z = v end) 
 Setters.SkillX = CreateToggle("Auto Skill [X]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.X = v end) 
@@ -448,7 +430,7 @@ Setters.SkillB = CreateToggle("Auto Skill [B]", false, WepSkillBox, function(v) 
 Setters.SkillN = CreateToggle("Auto Skill [N]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.N = v end) 
 Setters.SkillF = CreateToggle("Auto Skill [F]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.F = v end) 
 
-local HoldSkillBox = CreateSection("Hold Skills (Giữ chiêu)", SkillR)
+local HoldSkillBox = CreateSection("Hold Skills", SkillR)
 Setters.HoldTime = CreateSlider("Hold Time (s)", 1, 5, 1, HoldSkillBox, function(v) _G.Yui.HoldTime = v end)
 Setters.HoldR = CreateToggle("Hold Skill [R]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.R = v end) 
 Setters.HoldZ = CreateToggle("Hold Skill [Z]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.Z = v end) 
@@ -459,10 +441,19 @@ Setters.HoldB = CreateToggle("Hold Skill [B]", false, HoldSkillBox, function(v) 
 Setters.HoldN = CreateToggle("Hold Skill [N]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.N = v end) 
 Setters.HoldF = CreateToggle("Hold Skill [F]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.F = v end) 
 
+local HakiBox = CreateSection("Auto Haki", SkillL)
+Setters.HakiE = CreateToggle("Armament Haki [E]", false, HakiBox, function(v) _G.Yui.AutoHaki.E = v end)
+Setters.HakiR = CreateToggle("Observation Haki [R]", false, HakiBox, function(v) _G.Yui.AutoHaki.R = v end)
+Setters.HakiT = CreateToggle("Conqueror Haki [T] (Spam)", false, HakiBox, function(v) _G.Yui.AutoHaki.T = v end)
+
 -- RESOURCES
-local SkyBaseBox = CreateSection("Flash Chest/Barrel (No Delay)", ResL)
-Setters.CollectChest = CreateToggle("Auto Chests (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectChest = v end)
-Setters.CollectBarrel = CreateToggle("Auto Barrels (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectBarrel = v end)
+local SkyBaseBox = CreateSection("Flash Chest/Barrel", ResL)
+Setters.CollectSpeed = CreateSlider("Collect Speed", 0.1, 2, 0.2, SkyBaseBox, function(v) _G.Yui.CollectSpeed = v end, true)
+Setters.CollectChest = CreateToggle("Auto Chests (Wiggle)", false, SkyBaseBox, function(v) _G.Yui.CollectChest = v end)
+Setters.CollectBarrel = CreateToggle("Auto Barrels/Crates", false, SkyBaseBox, function(v) _G.Yui.CollectBarrel = v end)
+
+local FruitBox = CreateSection("Auto Fruit", ResL)
+Setters.AutoFruit = CreateToggle("Auto Collect Dropped Fruit", false, FruitBox, function(v) _G.Yui.AutoFruit = v end)
 
 local JuiceBox = CreateSection("Juice & Drinks", ResR)
 Setters.AutoJuice = CreateToggle("Auto Make Juice", false, JuiceBox, function(v) _G.Yui.AutoJuice = v end)
@@ -475,7 +466,7 @@ Setters.AutoEatApple = CreateToggle("Auto Eat All Apples", false, AppleBox, func
 Setters.AppleDelay = CreateSlider("Eat Delay (s)", 1, 10, 3, AppleBox, function(v) _G.Yui.AppleDelay = v end)
 
 -- PLAYER
-local MoveBox = CreateSection("Movement & Exploits", PlayerL)
+local MoveBox = CreateSection("Movement", PlayerL)
 Setters.Fly = CreateToggle("Fly Mode", false, MoveBox, function(v) 
     _G.Yui.Fly = v 
     local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -489,32 +480,38 @@ Setters.EnableWS = CreateToggle("WalkSpeed", false, MoveBox, function(v) _G.Yui.
 Setters.WalkSpeed = CreateSlider("Speed", 16, 300, 100, MoveBox, function(v) _G.Yui.WalkSpeed = v end)
 Setters.EnableJP = CreateToggle("JumpPower", false, MoveBox, function(v) _G.Yui.EnableJP = v end)
 Setters.JumpPower = CreateSlider("Power", 50, 500, 100, MoveBox, function(v) _G.Yui.JumpPower = v end)
-Setters.InfJump = CreateToggle("Infinite Jump", false, MoveBox, function(v) _G.Yui.InfJump = v end)
-Setters.Noclip = CreateToggle("Noclip (Through walls)", false, MoveBox, function(v) _G.Yui.Noclip = v end)
-Setters.WalkOnWater = CreateToggle("Walk On Water", false, MoveBox, function(v) _G.Yui.WalkOnWater = v end)
+
+local ExploitBox = CreateSection("Exploits", PlayerR)
+Setters.InfJump = CreateToggle("Infinite Jump", false, ExploitBox, function(v) _G.Yui.InfJump = v end)
+Setters.Noclip = CreateToggle("Noclip (Through walls)", false, ExploitBox, function(v) _G.Yui.Noclip = v end)
+Setters.WalkOnWater = CreateToggle("Walk On Water", false, ExploitBox, function(v) _G.Yui.WalkOnWater = v end)
 
 -- BOUNTY
-local BountyBox = CreateSection("Bounty & PvP", BountyL)
+local BountyBox = CreateSection("Player Tracker", BountyL)
 local UpdatePlayerDrop, SetPlayerDrop = CreateDropdown("Target Player", "None", BountyBox, function(v) _G.Yui.TargetPlayer = v end)
 CreateButton("Refresh Players", BountyBox, function()
-    local t = {} for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(t, p.Name) end end
-    UpdatePlayerDrop(t)
+    local t = {} for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(t, p.Name) end end UpdatePlayerDrop(t)
 end)
 CreateButton("Teleport to Target", BountyBox, function()
     if _G.Yui.TargetPlayer ~= "None" then
         local p = Players:FindFirstChild(_G.Yui.TargetPlayer)
-        if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-        end
+        if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character then LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame end
     end
 end)
 Setters.Spectate = CreateToggle("Spectate Target", false, BountyBox, function(v) 
-    _G.Yui.Spectate = v 
-    if not v then workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid") end
+    _G.Yui.Spectate = v if not v then workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid") end
 end)
-Setters.ESPPlayer = CreateToggle("ESP Players (Name + Dist)", false, BountyBox, function(v) 
+
+local HuntBox = CreateSection("Auto Hunt & ESP", BountyR)
+Setters.AutoHunt = CreateToggle("Auto Hunt Target (Aimbot)", false, HuntBox, function(v) _G.Yui.AutoHunt = v end)
+Setters.HuntDist = CreateSlider("Hunt Distance", 1, 25, 5, HuntBox, function(v) _G.Yui.HuntDist = v end)
+Setters.ESPPlayer = CreateToggle("ESP Players (Tracer + Dist)", false, HuntBox, function(v) 
     _G.Yui.ESPPlayer = v 
-    if not v then ESPFolder:ClearAllChildren() end
+    if not v then 
+        ESPFolder:ClearAllChildren() 
+        for _, line in pairs(ESPTracers) do line:Remove() end
+        ESPTracers = {}
+    end
 end)
 
 -- FISH & TELEPORT
@@ -557,8 +554,7 @@ CreateButton("Save New Location", PinBox, function()
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         _G.SavedCount = _G.SavedCount + 1 local locName = "Loc_" .. _G.SavedCount _G.SavedLocations[locName] = char.HumanoidRootPart.CFrame
-        local tList = {} for n, _ in pairs(_G.SavedLocations) do table.insert(tList, n) end
-        UpdateSavedDrop(tList)
+        local tList = {} for n, _ in pairs(_G.SavedLocations) do table.insert(tList, n) end UpdateSavedDrop(tList)
     end
 end)
 UpdateSavedDrop = CreateDropdown("Saved Locations", "None", PinBox, function(v) _G.SelectedSavedName = v _G.SelectedSavedCFrame = _G.SavedLocations[v] if _G.Yui.AutoPin then _G.PinnedCFrame = _G.SelectedSavedCFrame end end)
@@ -569,8 +565,7 @@ local ServerBox = CreateSection("Server Hopping", ServerL)
 CreateButton("Hop Random Server", ServerBox, function()
     local req = (syn and syn.request) or request or http_request or (http and http.request)
     if req then
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local res = game:HttpGet(url)
+        local res = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
         local data = HttpService:JSONDecode(res)
         if data and data.data then local s = data.data[math.random(1, #data.data)] TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id, LocalPlayer) end
     end
@@ -578,8 +573,7 @@ end)
 CreateButton("Hop Low Player Server", ServerBox, function()
     local req = (syn and syn.request) or request or http_request or (http and http.request)
     if req then
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
-        local res = game:HttpGet(url)
+        local res = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
         local data = HttpService:JSONDecode(res)
         if data and data.data then for _, v in ipairs(data.data) do if v.playing < v.maxPlayers and v.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) break end end end
     end
@@ -630,11 +624,17 @@ local function GetConfigList()
 end
 
 local UpdateConfigDrop, SetConfigDrop = CreateDropdown("Select Config", _G.Yui.ConfigName, ConfigBox2, function(v) _G.Yui.ConfigName = v SaveCoreSettings() end)
-CreateButton("Save / Overwrite Config", ConfigBox2, function()
-    if writefile and HttpService then 
+
+CreateButton("Create New Config", ConfigBox2, function()
+    if writefile and HttpService and _G.Yui.ConfigName ~= "" then 
         writefile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json", HttpService:JSONEncode(_G.Yui)) 
-        UpdateConfigDrop(GetConfigList()) 
+        UpdateConfigDrop(GetConfigList())
+        SetConfigDrop(_G.Yui.ConfigName)
     end
+end)
+
+CreateButton("Save / Overwrite Config", ConfigBox2, function()
+    if writefile and HttpService then writefile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json", HttpService:JSONEncode(_G.Yui)) UpdateConfigDrop(GetConfigList()) end
 end)
 CreateButton("Load Config", ConfigBox2, function()
     if readfile and isfile and isfile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json") then
@@ -649,17 +649,11 @@ AutoLoadStatus.Size = UDim2.new(1, 0, 0, 15) AutoLoadStatus.BackgroundTransparen
 AutoLoadStatus.TextColor3 = Theme.SelectedGreen AutoLoadStatus.Font = Enum.Font.Gotham AutoLoadStatus.TextSize = 10
 AutoLoadStatus.Text = _G.Yui.AutoLoadConfig and ("Auto Loading: " .. _G.Yui.AutoLoadName) or "Auto Load: OFF"
 
-CreateButton("Set as Auto Load Config", ConfigBox2, function()
-    _G.Yui.AutoLoadConfig = true
-    _G.Yui.AutoLoadName = _G.Yui.ConfigName
-    AutoLoadStatus.Text = "Auto Loading: " .. _G.Yui.AutoLoadName
-    SaveCoreSettings()
+CreateButton("Set as Auto Load", ConfigBox2, function()
+    _G.Yui.AutoLoadConfig = true _G.Yui.AutoLoadName = _G.Yui.ConfigName AutoLoadStatus.Text = "Auto Loading: " .. _G.Yui.AutoLoadName SaveCoreSettings()
 end)
-CreateButton("Remove Auto Load Config", ConfigBox2, function()
-    _G.Yui.AutoLoadConfig = false
-    _G.Yui.AutoLoadName = ""
-    AutoLoadStatus.Text = "Auto Load: OFF"
-    SaveCoreSettings()
+CreateButton("Remove Auto Load", ConfigBox2, function()
+    _G.Yui.AutoLoadConfig = false _G.Yui.AutoLoadName = "" AutoLoadStatus.Text = "Auto Load: OFF" SaveCoreSettings()
 end)
 
 local function SilentClick(btn)
@@ -683,19 +677,27 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-local WOWPart = Instance.new("Part")
-WOWPart.Size = Vector3.new(10, 1, 10) WOWPart.Transparency = 1 WOWPart.Anchored = true WOWPart.CanCollide = false WOWPart.Parent = Workspace
+-- Walk On Water (Tạo bệ đỡ vô hình dính dưới chân)
+local WOWPad = Instance.new("Part")
+WOWPad.Size = Vector3.new(5, 1, 5) WOWPad.Transparency = 1 WOWPad.Anchored = true WOWPad.CanCollide = false WOWPad.Parent = Workspace
 RunService.Heartbeat:Connect(function()
     if _G.Yui.WalkOnWater and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local root = LocalPlayer.Character.HumanoidRootPart
-        local ray = Ray.new(root.Position, Vector3.new(0, -10, 0))
-        local hit, pos, mat = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character, WOWPart})
-        if mat == Enum.Material.Water then WOWPart.Position = Vector3.new(root.Position.X, pos.Y - 1, root.Position.Z) WOWPart.CanCollide = true
-        else WOWPart.Position = Vector3.new(0, 99999, 0) WOWPart.CanCollide = false end
-    else WOWPart.Position = Vector3.new(0, 99999, 0) WOWPart.CanCollide = false end
+        local state = LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character:FindFirstChild("Humanoid"):GetState()
+        if state == Enum.HumanoidStateType.Swimming then
+            WOWPad.Position = root.Position - Vector3.new(0, 3, 0)
+            WOWPad.CanCollide = true
+            root.Velocity = Vector3.new(root.Velocity.X, 50, root.Velocity.Z) -- Đẩy lên mặt nước
+        else
+            WOWPad.Position = root.Position - Vector3.new(0, 3.5, 0)
+            WOWPad.CanCollide = true
+        end
+    else WOWPad.Position = Vector3.new(0, 99999, 0) WOWPad.CanCollide = false end
 end)
 
+-- ESP TRACERS & BOUNTY
 RunService.RenderStepped:Connect(function()
+    local cam = workspace.CurrentCamera
     if _G.Yui.ESPPlayer then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
@@ -709,15 +711,43 @@ RunService.RenderStepped:Connect(function()
                 end
                 bg.Adornee = p.Character:FindFirstChild("Head")
                 bg.TextLabel.Text = p.Name .. " [" .. dist .. "m]"
+
+                -- Vẽ dây Tracer bằng Drawing API (nếu Executor hỗ trợ)
+                if Drawing then
+                    if not ESPTracers[p.Name] then
+                        ESPTracers[p.Name] = Drawing.new("Line") ESPTracers[p.Name].Thickness = 1.5 ESPTracers[p.Name].Color = Theme.Accent ESPTracers[p.Name].Transparency = 0.8
+                    end
+                    local pos, onScreen = cam:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                    if onScreen then
+                        ESPTracers[p.Name].From = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y)
+                        ESPTracers[p.Name].To = Vector2.new(pos.X, pos.Y)
+                        ESPTracers[p.Name].Visible = true
+                    else ESPTracers[p.Name].Visible = false end
+                end
             else
                 if ESPFolder:FindFirstChild("ESP_"..p.Name) then ESPFolder:FindFirstChild("ESP_"..p.Name):Destroy() end
+                if ESPTracers[p.Name] then ESPTracers[p.Name]:Remove() ESPTracers[p.Name] = nil end
             end
         end
     end
     
     if _G.Yui.Spectate and _G.Yui.TargetPlayer ~= "None" then
         local p = Players:FindFirstChild(_G.Yui.TargetPlayer)
-        if p and p.Character and p.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject = p.Character.Humanoid end
+        if p and p.Character and p.Character:FindFirstChild("Humanoid") then cam.CameraSubject = p.Character.Humanoid end
+    end
+end)
+
+-- AUTO HUNT
+task.spawn(function()
+    while task.wait() do
+        if _G.Yui.AutoHunt and _G.Yui.TargetPlayer ~= "None" then
+            local p = Players:FindFirstChild(_G.Yui.TargetPlayer)
+            if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local offset = CFrame.new(0, 0, _G.Yui.HuntDist) -- Tele sau lưng
+                LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame * offset
+                LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.zero
+            end
+        end
     end
 end)
 
@@ -743,8 +773,7 @@ RunService.Heartbeat:Connect(function()
             pcall(function()
                 local toEquip = {}
                 for _, tool in ipairs(LocalPlayer.Backpack:GetChildren()) do if tool:IsA("Tool") and (string.find(string.lower(tool.Name), "juice") or string.find(string.lower(tool.Name), "milk")) then table.insert(toEquip, tool) end end
-                for _, tool in ipairs(toEquip) do char.Humanoid:EquipTool(tool) end
-                task.wait(0.1)
+                for _, tool in ipairs(toEquip) do char.Humanoid:EquipTool(tool) end task.wait(0.1)
                 for _, tool in ipairs(char:GetChildren()) do if tool:IsA("Tool") and (string.find(string.lower(tool.Name), "juice") or string.find(string.lower(tool.Name), "milk")) then tool:Activate() end end
             end)
         end LastDrinkTick = tick()
@@ -817,6 +846,7 @@ local function GetQuestMobName()
 end
 local function HasActiveQuest() return GetQuestMobName() ~= nil end
 
+-- QUEST & AUTO SPAWN
 task.spawn(function()
     while task.wait(0.5) do
         local pGui = LocalPlayer:FindFirstChild("PlayerGui") if not pGui then continue end
@@ -832,14 +862,21 @@ task.spawn(function()
         local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
         
-        if _G.Yui.AutoQuest and not HasActiveQuest() and (not dialogue or not dialogue.Visible) and _G.Yui.SelectedQuest ~= "" then
+        -- Gọi NPC Thường
+        if _G.Yui.AutoNormalQuest and not HasActiveQuest() and (not dialogue or not dialogue.Visible) and _G.Yui.SelectedNormalQuest ~= "" then
             for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj.Name == _G.Yui.SelectedQuest and obj:IsA("Model") then
-                    local pN, oN = string.lower(obj.Parent and obj.Parent.Name or ""), string.lower(obj.Name)
-                    if string.find(pN, "quest") or string.find(pN, "daily") or string.find(oN, "quest") or string.find(oN, "daily") then
-                        local root = obj:FindFirstChild("HumanoidRootPart")
-                        if root then local cd = root:FindFirstChildOfClass("ClickDetector") if cd and fireclickdetector then fireclickdetector(cd, 0) end end break 
-                    end
+                if obj.Name == _G.Yui.SelectedNormalQuest and obj:IsA("Model") then
+                    local root = obj:FindFirstChild("HumanoidRootPart")
+                    if root then local cd = root:FindFirstChildOfClass("ClickDetector") if cd and fireclickdetector then fireclickdetector(cd, 0) end end break 
+                end
+            end
+        end
+        -- Gọi NPC Ngày
+        if _G.Yui.AutoDailyQuest and not HasActiveQuest() and (not dialogue or not dialogue.Visible) and _G.Yui.SelectedDailyQuest ~= "" then
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj.Name == _G.Yui.SelectedDailyQuest and obj:IsA("Model") then
+                    local root = obj:FindFirstChild("HumanoidRootPart")
+                    if root then local cd = root:FindFirstChildOfClass("ClickDetector") if cd and fireclickdetector then fireclickdetector(cd, 0) end end break 
                 end
             end
         end
@@ -864,6 +901,25 @@ task.spawn(function()
         local cam = workspace.CurrentCamera
         local didAction = false
 
+        -- [A] AUTO FRUIT
+        if _G.Yui.AutoFruit and not didAction then
+            pcall(function()
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("Tool") and string.find(string.lower(obj.Name), "fruit") then
+                        local handle = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+                        if handle then
+                            IsDiving = true cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0))
+                            root.CFrame = handle.CFrame
+                            task.wait(_G.Yui.CollectSpeed)
+                            for _, cd in pairs(obj:GetDescendants()) do if cd:IsA("ClickDetector") then fireclickdetector(cd, 1) end end
+                            didAction = true break
+                        end
+                    end
+                end
+            end)
+        end
+
+        -- [B] AUTO JUICE
         if _G.Yui.AutoJuice and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -879,6 +935,7 @@ task.spawn(function()
             end)
         end
 
+        -- [C] AUTO CHEST (CÓ CƠ CHẾ WIGGLE LẮC QUA LẠI ÉP NHẶT)
         if _G.Yui.CollectChest and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -886,7 +943,14 @@ task.spawn(function()
                         local tPart = obj:IsA("BasePart") and obj or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
                         if tPart and tPart.Transparency < 1 then
                             IsDiving = true cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0))
-                            local anchor = root.CFrame root.CFrame = tPart.CFrame * CFrame.new(0, 1, 0) root.Velocity = Vector3.zero 
+                            local anchor = root.CFrame 
+                            
+                            -- Wiggle Mechanic
+                            root.CFrame = tPart.CFrame * CFrame.new(0, 1, 0)
+                            task.wait(_G.Yui.CollectSpeed / 2)
+                            root.CFrame = tPart.CFrame * CFrame.new(1, 1, 0)
+                            task.wait(_G.Yui.CollectSpeed / 2)
+
                             if firetouchinterest then for i=1,10 do for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then firetouchinterest(part, tPart, 0) firetouchinterest(part, tPart, 1) end end end end
                             root.CFrame = anchor didAction = true break
                         end
@@ -895,6 +959,7 @@ task.spawn(function()
             end)
         end
 
+        -- [D] AUTO BARREL
         if _G.Yui.CollectBarrel and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -904,6 +969,7 @@ task.spawn(function()
                         if tPart and cd and tPart.Transparency < 1 then
                             IsDiving = true cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0))
                             local anchor = root.CFrame root.CFrame = tPart.CFrame * CFrame.new(0, 2, 0) root.Velocity = Vector3.zero 
+                            task.wait(_G.Yui.CollectSpeed)
                             if fireclickdetector then for i=1,10 do fireclickdetector(cd, 1) end end
                             root.CFrame = anchor didAction = true break
                         end
@@ -919,13 +985,14 @@ end)
 
 local LastAttack = tick()
 
+-- FARMING & ATTACK
 task.spawn(function()
     while task.wait() do
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then continue end
 
-        if _G.Yui.AutoFarm and not IsDiving then
+        if _G.Yui.AutoFarm and not IsDiving and not _G.Yui.AutoHunt then
             pcall(function()
                 local shortest = math.huge
                 local target = nil
@@ -955,7 +1022,7 @@ task.spawn(function()
             end)
         end
 
-        local wantsAttack = _G.Yui.AutoClick or _G.Yui.FastAttack or (_G.Yui.AutoFarm and CurrentTarget)
+        local wantsAttack = _G.Yui.AutoClick or _G.Yui.FastAttack or (_G.Yui.AutoFarm and CurrentTarget) or (_G.Yui.AutoHunt and _G.Yui.TargetPlayer ~= "None")
         if wantsAttack and _G.Yui.SelectedWeapon ~= "None" then
             pcall(function()
                 local toolToEquip = LocalPlayer.Backpack:FindFirstChild(_G.Yui.SelectedWeapon) or char:FindFirstChild(_G.Yui.SelectedWeapon)
@@ -1097,7 +1164,7 @@ if CoreGuiS:FindFirstChild("RobloxPromptGui") then
 end
 
 -- =========================================================================
--- AUTO LOAD CONFIGURATION
+-- AUTO LOAD CONFIGURATION VÀ ÁP DỤNG THEME
 -- =========================================================================
 task.spawn(function()
     task.wait(1)
