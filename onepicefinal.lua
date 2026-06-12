@@ -1,5 +1,5 @@
 -- =========================================================================
--- [ULTIMATE MASTER] YUIHUB V19 - BOUNTY, HOLD SKILLS, FLASH FARM & THEMES
+-- [ULTIMATE MASTER] YUIHUB V20 - FIX AUTO LOAD, UNDERGROUND CAM & BOUNTY
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -25,21 +25,22 @@ end)
 
 _G.Yui = {
     AutoFarm = false, SelectedMobs = {},
-    SelectedWeapon = "None", AutoClick = false, FastAttack = false,
+    SelectedWeapon = "None", FastAttack = false,
     AttackDist = 5, AttackPos = "Above", AutoSpawn = false,
-    AutoSkill = {Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
-    HoldSkill = {Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
+    AutoSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
+    HoldSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
     HoldTime = 1,
     AutoHaki = {E=false, R=false, T=false},
     SelectedQuest = "", AutoQuest = false, AutoAcceptQuest = false,
     CollectChest = false, ChestDelay = 60, CollectBarrel = false, BarrelDelay = 60,
     AutoJuice = false, JuiceDelay = 5, AutoDrink = false, DrinkDelay = 1,
-    AutoEatApple = false, AppleDelay = 3, UseSkyBase = false, 
+    AutoEatApple = false, AppleDelay = 3, 
     WalkSpeed = 16, EnableWS = false, JumpPower = 50, EnableJP = false, 
     Fly = false, FlySpeed = 50, Noclip = false, WalkOnWater = false, InfJump = false,
     AutoGetRod = false, AutoFish = false, AutoPin = false,
     TargetPlayer = "None", ESPPlayer = false, Spectate = false,
-    AutoRejoin = false, AutoExecute = false, AutoLoadConfig = false, ConfigName = "Default",
+    AutoRejoin = false, AutoExecute = false, ExecuteScript = "", 
+    AutoLoadConfig = false, AutoLoadName = "", ConfigName = "Default",
     AutoHop = false, HopDelay = 3, ThemeColor = "Pink"
 }
 
@@ -51,8 +52,12 @@ local CoreFile = ConfigFolder .. "/CoreSettings.json"
 local function SaveCoreSettings()
     if writefile and HttpService then
         writefile(CoreFile, HttpService:JSONEncode({
-            AutoRejoin = _G.Yui.AutoRejoin, AutoExecute = _G.Yui.AutoExecute,
-            AutoLoadConfig = _G.Yui.AutoLoadConfig, LastConfig = _G.Yui.ConfigName
+            AutoRejoin = _G.Yui.AutoRejoin, 
+            AutoExecute = _G.Yui.AutoExecute,
+            ExecuteScript = _G.Yui.ExecuteScript,
+            AutoLoadConfig = _G.Yui.AutoLoadConfig,
+            AutoLoadName = _G.Yui.AutoLoadName,
+            LastConfig = _G.Yui.ConfigName
         }))
     end
 end
@@ -61,16 +66,15 @@ if isfile and isfile(CoreFile) then
     local data = HttpService:JSONDecode(readfile(CoreFile))
     if data.AutoRejoin ~= nil then _G.Yui.AutoRejoin = data.AutoRejoin end
     if data.AutoExecute ~= nil then _G.Yui.AutoExecute = data.AutoExecute end
+    if data.ExecuteScript ~= nil then _G.Yui.ExecuteScript = data.ExecuteScript end
     if data.AutoLoadConfig ~= nil then _G.Yui.AutoLoadConfig = data.AutoLoadConfig end
+    if data.AutoLoadName ~= nil then _G.Yui.AutoLoadName = data.AutoLoadName end
     if data.LastConfig ~= nil then _G.Yui.ConfigName = data.LastConfig end
 end
 
 local CurrentTarget = nil
 local AllDropdowns = {}
 local TimedBlacklist = {}
-local OriginalGroundPos = nil
-local SkyPlatform = nil
-local IsDiving = false 
 local FlyBV, FlyBG = nil, nil
 _G.PinnedCFrame = nil
 _G.SavedLocations = {}
@@ -129,7 +133,7 @@ local Theme = {
     Stroke = Color3.fromRGB(35, 35, 40), SelectedGreen = Color3.fromRGB(50, 255, 100)
 }
 
-local DynamicUIElements = {} -- Lưu các UI cần đổi màu
+local DynamicUIElements = {}
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "YuiHub" ScreenGui.Parent = TargetGui ScreenGui.ResetOnSpawn = false
@@ -254,10 +258,11 @@ local function CreateButton(text, parentBox, callback)
     BindTap(Btn, callback) return Btn
 end
 
-local function CreateTextBox(placeholder, parentBox, callback)
+local function CreateTextBox(placeholder, parentBox, defaultText, callback)
     local Frame = Instance.new("Frame", parentBox) Frame.Size = UDim2.new(1, 0, 0, 24) Frame.BackgroundTransparency = 1
-    local Box = Instance.new("TextBox", Frame) Box.Size = UDim2.new(1, 0, 1, 0) Box.BackgroundColor3 = Theme.MainBg Box.TextColor3 = Theme.TextTitle Box.Font = Enum.Font.Gotham Box.TextSize = 10 Box.PlaceholderText = placeholder Box.Text = "" Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4) Instance.new("UIStroke", Box).Color = Theme.Stroke
-    Box.FocusLost:Connect(function() callback(Box.Text) end) return Box
+    local Box = Instance.new("TextBox", Frame) Box.Size = UDim2.new(1, 0, 1, 0) Box.BackgroundColor3 = Theme.MainBg Box.TextColor3 = Theme.TextTitle Box.Font = Enum.Font.Gotham Box.TextSize = 10 Box.PlaceholderText = placeholder Box.Text = defaultText or "" Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4) Instance.new("UIStroke", Box).Color = Theme.Stroke
+    Box.FocusLost:Connect(function() callback(Box.Text) end) 
+    return function(str) Box.Text = str end
 end
 
 local function CreateDropdown(labelStr, defaultStr, parentBox, callback)
@@ -345,9 +350,7 @@ local function UpdateThemeColor(colName)
         for _, item in pairs(DynamicUIElements) do
             if item.IsToggle then
                 if item.Obj.BackgroundColor3 ~= Theme.MainBg then item.Obj[item.Prop] = Theme.Accent end
-            else
-                item.Obj[item.Prop] = Theme.Accent
-            end
+            else item.Obj[item.Prop] = Theme.Accent end
         end
     end
 end
@@ -356,12 +359,14 @@ end
 -- MENU TABS
 -- ============================
 local MainL, MainR = CreateTab("Main Farm", true)
-local QuestL, QuestR = CreateTab("Quest & Skills", false)
+local QuestL, QuestR = CreateTab("Quest", false)
+local SkillL, SkillR = CreateTab("Skills", false)
 local ResL, ResR = CreateTab("Resources", false)
-local PlayerL, PlayerR = CreateTab("Player & Bounty", false)
+local PlayerL, PlayerR = CreateTab("Player", false)
+local BountyL, BountyR = CreateTab("Bounty & PvP", false)
 local FishL, FishR = CreateTab("Fish & Teleport", false)
 local ServerL, ServerR = CreateTab("Server & FPS", false)
-local MiscL, MiscR = CreateTab("Config & Theme", false)
+local SetL, SetR = CreateTab("Settings", false)
 
 local Setters = {}
 
@@ -401,15 +406,14 @@ CreateButton("Refresh Weapons", AtkBox, function()
     for _, v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("Tool") then table.insert(t, v.Name) end end
     UpdateWepDrop(t)
 end)
-Setters.AutoClick = CreateToggle("Mouse Click Attack", false, AtkBox, function(v) _G.Yui.AutoClick = v end)
-Setters.FastAttack = CreateToggle("Silent Fast Attack", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
+Setters.FastAttack = CreateToggle("Auto Fast Attack (Ngầm)", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
 
 local ConfigBox = CreateSection("Attack Position", MainR)
 local UpdatePosDropdown, SetPosDrop = CreateDropdown("Position", "Above", ConfigBox, function(v) _G.Yui.AttackPos = v end)
 UpdatePosDropdown({"Above", "Below", "Behind", "Front"})
 Setters.AttackDist = CreateSlider("Distance", 1, 25, 5, ConfigBox, function(v) _G.Yui.AttackDist = v end)
 
--- QUEST & SKILLS
+-- QUEST & HAKI
 local QuestBox = CreateSection("Auto Quest", QuestL)
 Setters.AutoQuest = CreateToggle("Auto Complete Quest", false, QuestBox, function(v) _G.Yui.AutoQuest = v end)
 Setters.AutoAcceptQuest = CreateToggle("Auto Accept Quest GUI", false, QuestBox, function(v) _G.Yui.AutoAcceptQuest = v end)
@@ -428,53 +432,40 @@ CreateButton("Refresh Quest & Daily NPCs", QuestBox, function()
     table.sort(list) UpdateQuestDrop(list)
 end)
 
-local WepSkillBox = CreateSection("Auto Skills (Normal)", QuestR)
-Setters.SkillZ = CreateToggle("Auto Skill [Z]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.Z = v end) 
-Setters.SkillX = CreateToggle("Auto Skill [X]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.X = v end) 
-Setters.SkillC = CreateToggle("Auto Skill [C]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.C = v end) 
-Setters.SkillV = CreateToggle("Auto Skill [V]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.V = v end) 
-Setters.SkillF = CreateToggle("Auto Skill [F]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.F = v end) 
-
-local HoldSkillBox = CreateSection("Hold Skills (Custom)", QuestL)
-Setters.HoldTime = CreateSlider("Hold Time (s)", 1, 5, 1, HoldSkillBox, function(v) _G.Yui.HoldTime = v end)
-Setters.HoldZ = CreateToggle("Hold Skill [Z]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.Z = v end) 
-Setters.HoldX = CreateToggle("Hold Skill [X]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.X = v end) 
-Setters.HoldC = CreateToggle("Hold Skill [C]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.C = v end) 
-Setters.HoldV = CreateToggle("Hold Skill [V]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.V = v end) 
-
 local HakiBox = CreateSection("Auto Haki", QuestR)
 Setters.HakiE = CreateToggle("Armament Haki [E]", false, HakiBox, function(v) _G.Yui.AutoHaki.E = v end)
 Setters.HakiR = CreateToggle("Observation Haki [R]", false, HakiBox, function(v) _G.Yui.AutoHaki.R = v end)
 Setters.HakiT = CreateToggle("Conqueror Haki [T] (Spam)", false, HakiBox, function(v) _G.Yui.AutoHaki.T = v end)
 
--- RESOURCES
-local function UpdateSkyBaseState()
-    local needsSkyBase = _G.Yui.CollectChest or _G.Yui.CollectBarrel or _G.Yui.AutoJuice
-    _G.Yui.UseSkyBase = needsSkyBase
-    local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart")
-    if needsSkyBase then
-        if not SkyPlatform and root then
-            OriginalGroundPos = root.CFrame
-            SkyPlatform = Instance.new("Part") SkyPlatform.Size = Vector3.new(60, 1, 60) SkyPlatform.Position = root.Position + Vector3.new(0, 3000, 0)
-            SkyPlatform.Anchored = true SkyPlatform.Transparency = 0.6 SkyPlatform.BrickColor = BrickColor.new("Cyan") SkyPlatform.Parent = Workspace
-            root.CFrame = SkyPlatform.CFrame * CFrame.new(0, 3, 0) root.Velocity = Vector3.zero
-        end
-    else
-        if SkyPlatform then
-            if root and OriginalGroundPos then root.CFrame = OriginalGroundPos root.Velocity = Vector3.zero end
-            SkyPlatform:Destroy() SkyPlatform = nil
-        end
-    end
-end
+-- SKILLS
+local WepSkillBox = CreateSection("Normal Auto Skills", SkillL)
+Setters.SkillR = CreateToggle("Auto Skill [R]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.R = v end) 
+Setters.SkillZ = CreateToggle("Auto Skill [Z]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.Z = v end) 
+Setters.SkillX = CreateToggle("Auto Skill [X]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.X = v end) 
+Setters.SkillC = CreateToggle("Auto Skill [C]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.C = v end) 
+Setters.SkillV = CreateToggle("Auto Skill [V]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.V = v end) 
+Setters.SkillB = CreateToggle("Auto Skill [B]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.B = v end) 
+Setters.SkillN = CreateToggle("Auto Skill [N]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.N = v end) 
+Setters.SkillF = CreateToggle("Auto Skill [F]", false, WepSkillBox, function(v) _G.Yui.AutoSkill.F = v end) 
 
+local HoldSkillBox = CreateSection("Hold Skills (Giữ chiêu)", SkillR)
+Setters.HoldTime = CreateSlider("Hold Time (s)", 1, 5, 1, HoldSkillBox, function(v) _G.Yui.HoldTime = v end)
+Setters.HoldR = CreateToggle("Hold Skill [R]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.R = v end) 
+Setters.HoldZ = CreateToggle("Hold Skill [Z]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.Z = v end) 
+Setters.HoldX = CreateToggle("Hold Skill [X]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.X = v end) 
+Setters.HoldC = CreateToggle("Hold Skill [C]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.C = v end) 
+Setters.HoldV = CreateToggle("Hold Skill [V]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.V = v end) 
+Setters.HoldB = CreateToggle("Hold Skill [B]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.B = v end) 
+Setters.HoldN = CreateToggle("Hold Skill [N]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.N = v end) 
+Setters.HoldF = CreateToggle("Hold Skill [F]", false, HoldSkillBox, function(v) _G.Yui.HoldSkill.F = v end) 
+
+-- RESOURCES
 local SkyBaseBox = CreateSection("Flash Chest/Barrel (No Delay)", ResL)
-Setters.CollectChest = CreateToggle("Auto Chests (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectChest = v UpdateSkyBaseState() end)
-Setters.ChestDelay = CreateSlider("Sweep Delay (s)", 1, 300, 60, SkyBaseBox, function(v) _G.Yui.ChestDelay = v end)
-Setters.CollectBarrel = CreateToggle("Auto Barrels (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectBarrel = v UpdateSkyBaseState() end)
-Setters.BarrelDelay = CreateSlider("Sweep Delay (s)", 1, 300, 60, SkyBaseBox, function(v) _G.Yui.BarrelDelay = v end)
+Setters.CollectChest = CreateToggle("Auto Chests (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectChest = v end)
+Setters.CollectBarrel = CreateToggle("Auto Barrels (Flash)", false, SkyBaseBox, function(v) _G.Yui.CollectBarrel = v end)
 
 local JuiceBox = CreateSection("Juice & Drinks", ResR)
-Setters.AutoJuice = CreateToggle("Auto Make Juice", false, JuiceBox, function(v) _G.Yui.AutoJuice = v UpdateSkyBaseState() end)
+Setters.AutoJuice = CreateToggle("Auto Make Juice", false, JuiceBox, function(v) _G.Yui.AutoJuice = v end)
 Setters.JuiceDelay = CreateSlider("Make Delay (s)", 1, 30, 5, JuiceBox, function(v) _G.Yui.JuiceDelay = v end)
 Setters.AutoDrink = CreateToggle("Auto Drink All", false, JuiceBox, function(v) _G.Yui.AutoDrink = v end)
 Setters.DrinkDelay = CreateSlider("Drink Delay (s)", 1, 10, 1, JuiceBox, function(v) _G.Yui.DrinkDelay = v end)
@@ -483,7 +474,7 @@ local AppleBox = CreateSection("Auto Golden Apple", ResR)
 Setters.AutoEatApple = CreateToggle("Auto Eat All Apples", false, AppleBox, function(v) _G.Yui.AutoEatApple = v end)
 Setters.AppleDelay = CreateSlider("Eat Delay (s)", 1, 10, 3, AppleBox, function(v) _G.Yui.AppleDelay = v end)
 
--- PLAYER & BOUNTY
+-- PLAYER
 local MoveBox = CreateSection("Movement & Exploits", PlayerL)
 Setters.Fly = CreateToggle("Fly Mode", false, MoveBox, function(v) 
     _G.Yui.Fly = v 
@@ -502,7 +493,8 @@ Setters.InfJump = CreateToggle("Infinite Jump", false, MoveBox, function(v) _G.Y
 Setters.Noclip = CreateToggle("Noclip (Through walls)", false, MoveBox, function(v) _G.Yui.Noclip = v end)
 Setters.WalkOnWater = CreateToggle("Walk On Water", false, MoveBox, function(v) _G.Yui.WalkOnWater = v end)
 
-local BountyBox = CreateSection("Bounty & PvP", PlayerR)
+-- BOUNTY
+local BountyBox = CreateSection("Bounty & PvP", BountyL)
 local UpdatePlayerDrop, SetPlayerDrop = CreateDropdown("Target Player", "None", BountyBox, function(v) _G.Yui.TargetPlayer = v end)
 CreateButton("Refresh Players", BountyBox, function()
     local t = {} for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(t, p.Name) end end
@@ -604,7 +596,7 @@ CreateButton("Boost FPS", OptBox, function()
     end
     game:GetService("Lighting").GlobalShadows = false game:GetService("Lighting").FogEnd = 9e9
 end)
-CreateButton("Delete Map (Only Island)", OptBox, function()
+CreateButton("Delete Map (Only Terrain)", OptBox, function()
     for _, v in pairs(Workspace:GetDescendants()) do
         if v:IsA("BasePart") and not v:IsA("Terrain") and not v.Parent:FindFirstChild("Humanoid") then
             local n, p = string.lower(v.Name), string.lower(v.Parent.Name)
@@ -615,31 +607,30 @@ CreateButton("Delete Map (Only Island)", OptBox, function()
     end
 end)
 
--- CONFIG & THEME
-local SysBox = CreateSection("Core System", MiscL)
+-- SETTINGS
+local SysBox = CreateSection("System & Scripts", SetL)
 Setters.AutoRejoin = CreateToggle("Auto Rejoin", _G.Yui.AutoRejoin, SysBox, function(v) _G.Yui.AutoRejoin = v SaveCoreSettings() end)
-Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
-CreateButton("Reset Toggles", SysBox, function() for _, func in pairs(Setters) do pcall(function() func(false) end) end end)
+Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin/Hop", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
+CreateTextBox("Paste Loadstring URL Here", SysBox, _G.Yui.ExecuteScript, function(text) _G.Yui.ExecuteScript = text SaveCoreSettings() end)
+CreateButton("Reset All Toggles", SysBox, function() for _, func in pairs(Setters) do pcall(function() func(false) end) end end)
 
-local ThemeBox = CreateSection("Theme Customizer", MiscL)
+local ThemeBox = CreateSection("Theme Customizer", SetL)
 local UpdateThemeDrop, SetThemeDrop = CreateDropdown("Color Accent", "Pink", ThemeBox, function(v) UpdateThemeColor(v) end)
 UpdateThemeDrop({"Pink", "Red", "Blue", "Green", "Purple", "Orange"})
 
-local ConfigBox2 = CreateSection("Configurations", MiscR)
-CreateTextBox("Config Name", ConfigBox2, function(text) _G.Yui.ConfigName = text SaveCoreSettings() end)
+local ConfigBox2 = CreateSection("Configurations", SetR)
+CreateTextBox("Enter Config Name", ConfigBox2, _G.Yui.ConfigName, function(text) _G.Yui.ConfigName = text SaveCoreSettings() end)
 
 local function GetConfigList()
     local list = {}
     if listfiles then for _, file in pairs(listfiles(ConfigFolder)) do table.insert(list, file:gsub(ConfigFolder.."\\", ""):gsub(ConfigFolder.."/", ""):gsub(".json", "")) end end
-    -- Đảm bảo tên hiện tại luôn có mặt trong list nếu vừa lưu
     local found = false for _, n in ipairs(list) do if n == _G.Yui.ConfigName then found = true break end end
     if not found and _G.Yui.ConfigName ~= "" then table.insert(list, _G.Yui.ConfigName) end
     return list
 end
 
 local UpdateConfigDrop, SetConfigDrop = CreateDropdown("Select Config", _G.Yui.ConfigName, ConfigBox2, function(v) _G.Yui.ConfigName = v SaveCoreSettings() end)
-CreateButton("Refresh Configs", ConfigBox2, function() UpdateConfigDrop(GetConfigList()) end)
-CreateButton("Save / Overwrite", ConfigBox2, function()
+CreateButton("Save / Overwrite Config", ConfigBox2, function()
     if writefile and HttpService then 
         writefile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json", HttpService:JSONEncode(_G.Yui)) 
         UpdateConfigDrop(GetConfigList()) 
@@ -652,7 +643,24 @@ CreateButton("Load Config", ConfigBox2, function()
         if data.ThemeColor then UpdateThemeColor(data.ThemeColor) SetThemeDrop(data.ThemeColor) end
     end
 end)
-Setters.AutoLoadConfig = CreateToggle("Auto Load Config", _G.Yui.AutoLoadConfig, ConfigBox2, function(v) _G.Yui.AutoLoadConfig = v SaveCoreSettings() end)
+
+local AutoLoadStatus = Instance.new("TextLabel", ConfigBox2)
+AutoLoadStatus.Size = UDim2.new(1, 0, 0, 15) AutoLoadStatus.BackgroundTransparency = 1
+AutoLoadStatus.TextColor3 = Theme.SelectedGreen AutoLoadStatus.Font = Enum.Font.Gotham AutoLoadStatus.TextSize = 10
+AutoLoadStatus.Text = _G.Yui.AutoLoadConfig and ("Auto Loading: " .. _G.Yui.AutoLoadName) or "Auto Load: OFF"
+
+CreateButton("Set as Auto Load Config", ConfigBox2, function()
+    _G.Yui.AutoLoadConfig = true
+    _G.Yui.AutoLoadName = _G.Yui.ConfigName
+    AutoLoadStatus.Text = "Auto Loading: " .. _G.Yui.AutoLoadName
+    SaveCoreSettings()
+end)
+CreateButton("Remove Auto Load Config", ConfigBox2, function()
+    _G.Yui.AutoLoadConfig = false
+    _G.Yui.AutoLoadName = ""
+    AutoLoadStatus.Text = "Auto Load: OFF"
+    SaveCoreSettings()
+end)
 
 local function SilentClick(btn)
     if not btn then return end
@@ -688,7 +696,6 @@ RunService.Heartbeat:Connect(function()
 end)
 
 RunService.RenderStepped:Connect(function()
-    -- ESP LOGIC
     if _G.Yui.ESPPlayer then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Head") then
@@ -708,7 +715,6 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Spectate Logic
     if _G.Yui.Spectate and _G.Yui.TargetPlayer ~= "None" then
         local p = Players:FindFirstChild(_G.Yui.TargetPlayer)
         if p and p.Character and p.Character:FindFirstChild("Humanoid") then workspace.CurrentCamera.CameraSubject = p.Character.Humanoid end
@@ -856,23 +862,17 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then continue end
         local cam = workspace.CurrentCamera
-
-        if _G.Yui.UseSkyBase and SkyPlatform and not IsDiving then
-            if (root.Position - SkyPlatform.Position).Magnitude > 20 and not _G.Yui.Fly then root.CFrame = SkyPlatform.CFrame * CFrame.new(0, 3, 0) root.Velocity = Vector3.zero end
-        end
-
         local didAction = false
 
         if _G.Yui.AutoJuice and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj.Name == "JuicingBowl" and (not TimedBlacklist[obj] or tick() - TimedBlacklist[obj] > _G.Yui.JuiceDelay) then
+                    if obj.Name == "JuicingBowl" then
                         local tPart = obj:FindFirstChild("Bowl") or obj:FindFirstChild("Mixer1")
                         if tPart and tPart:IsA("BasePart") then
                             IsDiving = true local anchor = root.CFrame root.CFrame = tPart.CFrame * CFrame.new(0, 1.5, 0) root.Velocity = Vector3.zero
-                            -- Spam touch nhanh
                             for i=1, 10 do for _, pName in ipairs({"Bowl", "Mixer1", "Mixer2"}) do local p = obj:FindFirstChild(pName) local cd = p and p:FindFirstChildOfClass("ClickDetector") if cd and fireclickdetector then fireclickdetector(cd, 1) end end end
-                            TimedBlacklist[obj] = tick() root.CFrame = anchor didAction = true break
+                            root.CFrame = anchor didAction = true break
                         end
                     end
                 end
@@ -882,13 +882,13 @@ task.spawn(function()
         if _G.Yui.CollectChest and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj.Name == "TreasureChest" and (not TimedBlacklist[obj] or tick() - TimedBlacklist[obj] > _G.Yui.ChestDelay) then
+                    if obj.Name == "TreasureChest" then
                         local tPart = obj:IsA("BasePart") and obj or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
                         if tPart and tPart.Transparency < 1 then
                             IsDiving = true cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0))
                             local anchor = root.CFrame root.CFrame = tPart.CFrame * CFrame.new(0, 1, 0) root.Velocity = Vector3.zero 
                             if firetouchinterest then for i=1,10 do for _, part in ipairs(char:GetChildren()) do if part:IsA("BasePart") then firetouchinterest(part, tPart, 0) firetouchinterest(part, tPart, 1) end end end end
-                            TimedBlacklist[obj] = tick() root.CFrame = anchor didAction = true break
+                            root.CFrame = anchor didAction = true break
                         end
                     end
                 end
@@ -898,14 +898,14 @@ task.spawn(function()
         if _G.Yui.CollectBarrel and not didAction then
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if (obj.Name == "Barrel" or obj.Name == "Crate") and (not TimedBlacklist[obj] or tick() - TimedBlacklist[obj] > _G.Yui.BarrelDelay) then
+                    if (obj.Name == "Barrel" or obj.Name == "Crate") then
                         local tPart = obj:IsA("BasePart") and obj or obj:FindFirstChildOfClass("Part") or obj:FindFirstChildOfClass("MeshPart")
                         local cd = obj:FindFirstChildOfClass("ClickDetector")
                         if tPart and cd and tPart.Transparency < 1 then
                             IsDiving = true cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0))
                             local anchor = root.CFrame root.CFrame = tPart.CFrame * CFrame.new(0, 2, 0) root.Velocity = Vector3.zero 
                             if fireclickdetector then for i=1,10 do fireclickdetector(cd, 1) end end
-                            TimedBlacklist[obj] = tick() root.CFrame = anchor didAction = true break
+                            root.CFrame = anchor didAction = true break
                         end
                     end
                 end
@@ -963,17 +963,16 @@ task.spawn(function()
                 
                 local equippedTool = char:FindFirstChildOfClass("Tool")
                 if equippedTool and equippedTool.Name == _G.Yui.SelectedWeapon then
-                    if _G.Yui.AttackMethod == "Mouse Click" then
+                    if _G.Yui.FastAttack then
+                        equippedTool:Activate()
+                        for _, event in pairs(getconnections(equippedTool.Activated)) do event:Fire() end
+                    elseif _G.Yui.AutoClick then
                         equippedTool:Activate()
                         if tick() - LastAttack >= 0.15 then
                             VirtualInputManager:SendMouseButtonEvent(200, 0, 0, true, game, 0)
                             VirtualInputManager:SendMouseButtonEvent(200, 0, 0, false, game, 0)
                             LastAttack = tick()
                         end
-                    elseif _G.Yui.AttackMethod == "Silent Fast" then
-                        -- Spam Activate cho Đánh Ngầm
-                        equippedTool:Activate()
-                        for _, event in pairs(getconnections(equippedTool.Activated)) do event:Fire() end
                     end
                 end
             end)
@@ -992,8 +991,8 @@ task.spawn(function()
     end
 end)
 
--- HOLD SKILL LOOP (Chạy luồng riêng không cản trở đánh)
-local LastHoldTicks = {Z=0, X=0, C=0, V=0, B=0, N=0, F=0}
+-- HOLD SKILL LOOP
+local LastHoldTicks = {R=0, Z=0, X=0, C=0, V=0, B=0, N=0, F=0}
 RunService.Heartbeat:Connect(function()
     if CurrentTarget and CurrentTarget:FindFirstChild("HumanoidRootPart") then
         for key, active in pairs(_G.Yui.HoldSkill) do
@@ -1004,18 +1003,6 @@ RunService.Heartbeat:Connect(function()
                     task.wait(_G.Yui.HoldTime)
                     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
                 end)
-            end
-        end
-    end
-end)
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.Yui.AutoPin and _G.PinnedCFrame then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local dist = (char.HumanoidRootPart.Position - _G.PinnedCFrame.Position).Magnitude
-                if dist > 5 then char.HumanoidRootPart.CFrame = _G.PinnedCFrame char.HumanoidRootPart.Velocity = Vector3.new(0,0,0) end
             end
         end
     end
@@ -1051,7 +1038,6 @@ task.spawn(function()
 
             if hasRod then
                 _G.Yui.AutoGetRod = false
-                if Setters.AutoGetRod then Setters.AutoGetRod(false) end
             else
                 local package = char:FindFirstChild("Package") or (backpack and backpack:FindFirstChild("Package"))
                 if not package then
@@ -1104,19 +1090,19 @@ if CoreGuiS:FindFirstChild("RobloxPromptGui") then
         if _G.Yui.AutoRejoin and child.Name == "ErrorPrompt" then
             task.wait(2)
             local ts = game:GetService("TeleportService")
-            if _G.Yui.AutoExecute and queue_on_teleport then queue_on_teleport([[loadstring(game:HttpGet("YOUR_SCRIPT_URL_HERE"))()]]) end
+            if _G.Yui.AutoExecute and queue_on_teleport and _G.Yui.ExecuteScript ~= "" then queue_on_teleport([[loadstring(game:HttpGet("]].._G.Yui.ExecuteScript..[["))()]]) end
             ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
         end
     end)
 end
 
 -- =========================================================================
--- AUTO LOAD CONFIGURATION VÀ ÁP DỤNG THEME
+-- AUTO LOAD CONFIGURATION
 -- =========================================================================
 task.spawn(function()
     task.wait(1)
-    if _G.Yui.AutoLoadConfig and isfile and isfile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json") then
-        local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json"))
+    if _G.Yui.AutoLoadConfig and _G.Yui.AutoLoadName ~= "" and isfile and isfile(ConfigFolder .. "/" .. _G.Yui.AutoLoadName .. ".json") then
+        local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. _G.Yui.AutoLoadName .. ".json"))
         for k, v in pairs(data) do 
             _G.Yui[k] = v 
             if Setters[k] then pcall(function() Setters[k](v) end) end 
