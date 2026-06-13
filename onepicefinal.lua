@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - TELEPORT NPC & KÉO THẢ TOÀN MENU
+-- AUTO QUEST & SAM - SỬA LỖI KẸT KÉO THẢ (Kéo ở Thanh Tiêu Đề)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -35,7 +35,7 @@ local function BindTap(element, callback)
 end
 
 -- ============================
--- 2. TẠO MENU MINI (CÓ TELEPORT VÀ KÉO THẢ MỌI NƠI)
+-- 2. TẠO MENU MINI
 -- ============================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoQuest_Mini"
@@ -43,7 +43,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 340) -- Đã nới rộng thêm cho nút Teleport
+MainFrame.Size = UDim2.new(0, 230, 0, 340)
 MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -51,10 +51,19 @@ MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 
--- Thanh Header
+-- Thanh Header (CẦM VÀO ĐÂY ĐỂ KÉO)
 local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 30)
-Header.BackgroundTransparency = 1
+Header.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Làm màu nền hơi xám để dễ nhận diện vùng kéo
+Header.Active = true
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
+
+-- Xóa viền góc dưới của Header để nối liền với Body
+local HeaderCover = Instance.new("Frame", Header)
+HeaderCover.Size = UDim2.new(1, 0, 0, 5)
+HeaderCover.Position = UDim2.new(0, 0, 1, -5)
+HeaderCover.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+HeaderCover.BorderSizePixel = 0
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, -30, 1, 0)
@@ -83,27 +92,45 @@ BindTap(CloseBtn, function()
     ScreenGui:Destroy()
 end)
 
--- NÂNG CẤP: KÉO THẢ TOÀN BỘ KHUNG (Bấm vào vùng đen nào cũng kéo được)
-local dragToggle, dragInput, dragStart, startPos
-MainFrame.InputBegan:Connect(function(input)
+-- ==========================================
+-- THUẬT TOÁN KÉO THẢ MƯỢT MÀ CHUẨN ROBLOX
+-- ==========================================
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragToggle = true
+        dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
+
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
         end)
     end
 end)
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragToggle then
-        local Delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + Delta.X, startPos.Y.Scale, startPos.Y.Offset + Delta.Y)
+
+Header.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
     end
 end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+-- ==========================================
 
 -- Khung chứa Nút
 local ContentFrame = Instance.new("Frame", MainFrame)
@@ -377,7 +404,6 @@ task.spawn(function()
         -- NHẬN TỪ XA
         if not HasActiveQuest() and (not dialogue or not dialogue.Visible) then
             
-            -- 1. ƯU TIÊN CAO NHẤT: AUTO SAM
             if _G.AutoSam then
                 local foundSam = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -398,7 +424,6 @@ task.spawn(function()
                 if foundSam then continue end
             end
 
-            -- 2. ƯU TIÊN TIẾP THEO: DAILY QUEST
             if _G.AutoDaily then
                 local foundDaily = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -421,7 +446,6 @@ task.spawn(function()
                 if foundDaily then continue end
             end
 
-            -- 3. CUỐI CÙNG: QUEST THƯỜNG
             if _G.AutoNormal and _G.SelectedNormal ~= "" then
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj.Name == _G.SelectedNormal and obj:IsA("Model") and obj.Parent then
@@ -455,10 +479,8 @@ task.spawn(function()
                     local btnLeave = opts:FindFirstChild("Leave")
 
                     if _G.AutoSam then
-                        -- FIX TRIỆT ĐỂ SAM: Ưu tiên bấm Option (Lựa chọn 1) một cách tuyệt đối
                         if btnOption and btnOption.Visible then 
                             PassiveClick(btnOption)
-                        -- Nếu màn hình tiếp theo không có chữ Option mà có chữ Next, thì bấm Next
                         elseif btnNext and btnNext.Visible then 
                             PassiveClick(btnNext)
                         end
