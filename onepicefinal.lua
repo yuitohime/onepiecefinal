@@ -1,5 +1,5 @@
 -- =========================================================================
--- [MINI TESTER V4] SAM FIX (CLAIM 1/10) & SEPARATE TELEPORT BUTTONS
+-- [MINI TESTER V5] FIX UI GLITCH & PHYSICAL CLICK DETECTOR
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -29,16 +29,6 @@ local TargetDaily = ""
 local ListNormal = {}
 local ListDaily = {}
 
--- Hàm Di chuyển (Teleport)
-local function MoveTo(targetCFrame)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if root then
-        root.CFrame = targetCFrame
-        root.Velocity = Vector3.zero
-    end
-end
-
 -- ============================
 -- TẠO UI KÉO THẢ & DANH SÁCH
 -- ============================
@@ -60,7 +50,7 @@ Header.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, 0, 1, 0) Title.BackgroundTransparency = 1
-Title.Text = "🛠️ QUEST & SAM V4" Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "🛠️ QUEST & SAM V5" Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold Title.TextSize = 12
 
 local dragToggle, dragInput, dragStart, startPos
@@ -82,7 +72,7 @@ end)
 
 local Layout = Instance.new("UIListLayout", MainFrame)
 Layout.Padding = UDim.new(0, 6) Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Instance.new("Frame", MainFrame).Size = UDim2.new(1,0,0,10) -- Spacer
+Instance.new("Frame", MainFrame).Size = UDim2.new(1,0,0,10)
 
 local function CreateButton(txt, defaultColor)
     local btn = Instance.new("TextButton", MainFrame)
@@ -93,21 +83,16 @@ local function CreateButton(txt, defaultColor)
     return btn
 end
 
--- UI Elements
 local BtnRefresh = CreateButton("🔄 Quét Tất Cả Quest", Color3.fromRGB(40, 80, 150))
-
 local BtnSam = CreateButton("Auto Sam: OFF", Color3.fromRGB(50, 50, 50))
 local BtnSamAmt = CreateButton("Sam Amount: x1", Color3.fromRGB(80, 100, 150))
-
 local BtnNormalDrop = CreateButton("Quest Thường: None ▼", Color3.fromRGB(30, 30, 35))
 local BtnNormalTele = CreateButton("🚀 Teleport to Quest Thường", Color3.fromRGB(40, 40, 45))
 local BtnNormal = CreateButton("Auto Normal Quest: OFF", Color3.fromRGB(50, 50, 50))
-
 local BtnDailyDrop = CreateButton("Quest Daily: None ▼", Color3.fromRGB(30, 30, 35))
 local BtnDailyTele = CreateButton("🚀 Teleport to Quest Daily", Color3.fromRGB(40, 40, 45))
 local BtnDaily = CreateButton("Auto Daily Quest: OFF", Color3.fromRGB(50, 50, 50))
 
--- HỆ THỐNG DROPDOWN
 local function CreateDropdownMenu(parentBtn, isDaily)
     local Scroll = Instance.new("ScrollingFrame", ScreenGui)
     Scroll.Size = UDim2.new(0, 200, 0, 150)
@@ -116,7 +101,7 @@ local function CreateDropdownMenu(parentBtn, isDaily)
     Scroll.ScrollBarThickness = 2
     Instance.new("UICorner", Scroll).CornerRadius = UDim.new(0, 4)
     Instance.new("UIStroke", Scroll).Color = Color3.fromRGB(80, 150, 255)
-    local listLayout = Instance.new("UIListLayout", Scroll)
+    Instance.new("UIListLayout", Scroll)
 
     game:GetService("RunService").RenderStepped:Connect(function()
         if Scroll.Visible then
@@ -150,7 +135,6 @@ end
 local PopNormal = CreateDropdownMenu(BtnNormalDrop, false)
 local PopDaily = CreateDropdownMenu(BtnDailyDrop, true)
 
--- Nút Làm Mới & Logic UI
 BtnRefresh.MouseButton1Click:Connect(function()
     ListNormal, ListDaily = {}, {}
     local tempN, tempD = {}, {}
@@ -171,35 +155,16 @@ BtnRefresh.MouseButton1Click:Connect(function()
     task.wait(1.5) BtnRefresh.Text = "🔄 Quét Tất Cả Quest"
 end)
 
-BtnSam.MouseButton1Click:Connect(function()
-    AutoSam = not AutoSam
-    BtnSam.Text = "Auto Sam: " .. (AutoSam and "ON" or "OFF")
-    BtnSam.BackgroundColor3 = AutoSam and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(50, 50, 50)
-end)
+BtnSam.MouseButton1Click:Connect(function() AutoSam = not AutoSam BtnSam.Text = "Auto Sam: " .. (AutoSam and "ON" or "OFF") BtnSam.BackgroundColor3 = AutoSam and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(50, 50, 50) end)
+BtnSamAmt.MouseButton1Click:Connect(function() if SamAmount == "x1" then SamAmount = "x10" else SamAmount = "x1" end BtnSamAmt.Text = "Sam Amount: " .. SamAmount end)
+BtnNormal.MouseButton1Click:Connect(function() AutoNormal = not AutoNormal BtnNormal.Text = "Auto Normal Quest: " .. (AutoNormal and "ON" or "OFF") BtnNormal.BackgroundColor3 = AutoNormal and Color3.fromRGB(150, 100, 50) or Color3.fromRGB(50, 50, 50) end)
+BtnDaily.MouseButton1Click:Connect(function() AutoDaily = not AutoDaily BtnDaily.Text = "Auto Daily Quest: " .. (AutoDaily and "ON" or "OFF") BtnDaily.BackgroundColor3 = AutoDaily and Color3.fromRGB(150, 50, 150) or Color3.fromRGB(50, 50, 50) end)
 
-BtnSamAmt.MouseButton1Click:Connect(function()
-    if SamAmount == "x1" then SamAmount = "x10" else SamAmount = "x1" end
-    BtnSamAmt.Text = "Sam Amount: " .. SamAmount
-end)
-
-BtnNormal.MouseButton1Click:Connect(function()
-    AutoNormal = not AutoNormal
-    BtnNormal.Text = "Auto Normal Quest: " .. (AutoNormal and "ON" or "OFF")
-    BtnNormal.BackgroundColor3 = AutoNormal and Color3.fromRGB(150, 100, 50) or Color3.fromRGB(50, 50, 50)
-end)
-
-BtnDaily.MouseButton1Click:Connect(function()
-    AutoDaily = not AutoDaily
-    BtnDaily.Text = "Auto Daily Quest: " .. (AutoDaily and "ON" or "OFF")
-    BtnDaily.BackgroundColor3 = AutoDaily and Color3.fromRGB(150, 50, 150) or Color3.fromRGB(50, 50, 50)
-end)
-
--- TELEPORT BUTTONS LOGIC
 local function TeleportToNPC(npcName)
     if npcName == "" or npcName == "None" then return end
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj.Name == npcName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3))
+            LocalPlayer.Character.HumanoidRootPart.CFrame = obj.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
             break
         end
     end
@@ -208,7 +173,7 @@ BtnNormalTele.MouseButton1Click:Connect(function() TeleportToNPC(TargetNormal) e
 BtnDailyTele.MouseButton1Click:Connect(function() TeleportToNPC(TargetDaily) end)
 
 -- ============================
--- LÕI XỬ LÝ QUYỀN LỰC NHẤT (V4)
+-- LÕI XỬ LÝ (CORE ENGINE V5)
 -- ============================
 local function GetFullText(obj)
     local txt = ""
@@ -235,12 +200,27 @@ local function PassiveClick(btn)
     end)
 end
 
+-- HÀM FIRE NPC (FIX KHOẢNG CÁCH)
 local function FireNPC(npcName)
     if npcName == "" then return false end
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj.Name == npcName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
             local cd = obj.HumanoidRootPart:FindFirstChildOfClass("ClickDetector")
-            if cd then fireclickdetector(cd, 0) return true end
+            if cd then 
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    -- Bắt buộc phải bay sát mặt NPC mới nhận được ClickDetector
+                    root.CFrame = obj.HumanoidRootPart.CFrame * CFrame.new(0, 0, 4)
+                    root.Velocity = Vector3.zero
+                    task.wait(0.2)
+                    -- Bắn 3 kiểu Click để qua mặt Executor
+                    pcall(function() fireclickdetector(cd, 0) end)
+                    pcall(function() fireclickdetector(cd, 1) end)
+                    pcall(function() fireclickdetector(cd) end)
+                    return true 
+                end
+            end
         end
     end
     return false
@@ -255,7 +235,8 @@ local function HasActiveQuest()
     return false
 end
 
--- VÒNG LẶP AUTO
+local lastClickTime = 0
+
 task.spawn(function()
     while task.wait(0.5) do
         local pGui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -265,58 +246,51 @@ task.spawn(function()
         if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
         
-        -- KÍCH HOẠT NPC NGẦM (CHỌC TỪ XA)
+        local isQuesting = AutoNormal or AutoDaily or AutoSam
+
+        -- BƯỚC 1: KÍCH HOẠT NPC
         if not (dialogue and dialogue.Visible) then
-            if AutoSam then FireNPC("Sam")
-            elseif AutoNormal and not HasActiveQuest() then FireNPC(TargetNormal)
-            elseif AutoDaily and not HasActiveQuest() then FireNPC(TargetDaily)
+            if isQuesting and tick() - lastClickTime > 2 then -- Chống spam dịch chuyển liên tục
+                if AutoSam then 
+                    FireNPC("Sam") lastClickTime = tick()
+                elseif AutoNormal and not HasActiveQuest() then 
+                    FireNPC(TargetNormal) lastClickTime = tick()
+                elseif AutoDaily and not HasActiveQuest() then 
+                    FireNPC(TargetDaily) lastClickTime = tick()
+                end
             end
         end
 
-        -- ĐỌC CẤU TRÚC VÀ BẤM BẢNG THOẠI
+        -- BƯỚC 2: XỬ LÝ BẢNG THOẠI (FIX NHÁY UI)
         if dialogue and dialogue.Visible then
-            local isQuesting = AutoNormal or AutoDaily or AutoSam
-            
-            -- Tàng hình bảng nếu đang bật Auto (Tắt auto là hiện lại)
-            if isQuesting then 
+            if isQuesting then
+                -- NẾU ĐANG BẬT AUTO: Giấu bảng thoại đi và tự bấm
                 pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end) 
-            else 
-                pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end) 
-            end
+                
+                local opts = dialogue:FindFirstChild("Options")
+                if opts then
+                    local btnNext = opts:FindFirstChild("Next")
+                    local btnOpt1 = opts:FindFirstChild("Option")
+                    local btnOpt2 = opts:FindFirstChild("Option2")
 
-            local opts = dialogue:FindFirstChild("Options")
-            if opts then
-                local btnNext = opts:FindFirstChild("Next")
-                local btnOpt1 = opts:FindFirstChild("Option")
-                local btnOpt2 = opts:FindFirstChild("Option2")
-
-                if AutoSam then
-                    local txt1 = btnOpt1 and GetFullText(btnOpt1) or ""
-                    
-                    if btnNext and btnNext.Visible then
-                        PassiveClick(btnNext)
-                    elseif string.find(txt1, "compasses") and not string.find(txt1, "buy") then
-                        -- Màn hình 1: Bấm chọn "Compasses [Devil Fruit]" (Luôn là Option 1)
-                        PassiveClick(btnOpt1)
-                    elseif string.find(txt1, "claim") or string.find(txt1, "1") then
-                        -- Màn hình 2: Chọn số lượng
-                        if SamAmount == "x1" and btnOpt1 then
-                            PassiveClick(btnOpt1)
-                        elseif SamAmount == "x10" and btnOpt2 then
-                            PassiveClick(btnOpt2)
+                    if AutoSam then
+                        local txt1 = btnOpt1 and GetFullText(btnOpt1) or ""
+                        if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                        elseif string.find(txt1, "compasses") and not string.find(txt1, "buy") then PassiveClick(btnOpt1)
+                        elseif string.find(txt1, "claim") or string.find(txt1, "1") then
+                            if SamAmount == "x1" and btnOpt1 then PassiveClick(btnOpt1)
+                            elseif SamAmount == "x10" and btnOpt2 then PassiveClick(btnOpt2) end
                         end
+                        task.wait(0.2)
+                        
+                    elseif AutoNormal or AutoDaily then
+                        if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                        elseif btnOpt1 and btnOpt1.Visible then PassiveClick(btnOpt1) end
+                        task.wait(0.2)
                     end
-                    task.wait(0.2)
-                    
-                elseif AutoNormal or AutoDaily then
-                    -- Đối với Quest thường/Daily: Cứ thấy Next bấm Next, thấy Option (Accept) bấm Option
-                    if btnNext and btnNext.Visible then
-                        PassiveClick(btnNext)
-                    elseif btnOpt1 and btnOpt1.Visible then
-                        PassiveClick(btnOpt1)
-                    end
-                    task.wait(0.2)
                 end
+            else
+                -- NẾU ĐANG TẮT AUTO: KHÔNG LÀM GÌ CẢ (Để bảng thoại hoạt động bình thường, hết nháy)
             end
         end
     end
