@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - FIX LỖI KẸT BẢNG THOẠI CỦA SAM
+-- AUTO QUEST & SAM - THÊM TÙY CHỈNH DELAY CHỐNG SPAM KẸT BẢNG THOẠI
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -17,6 +17,7 @@ _G.AutoDaily = false
 _G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
+_G.ClickDelay = 1 -- [MỚI] Mặc định delay 1 giây để an toàn chống lặp
 
 -- ============================
 -- 1. HÀM CẢM ỨNG CHUẨN MOBILE
@@ -34,7 +35,7 @@ local function BindTap(element, callback)
 end
 
 -- ============================
--- 2. TẠO MENU MINI (CÓ KÉO THẢ & NÚT X)
+-- 2. TẠO MENU MINI (CÓ KÉO THẢ, NÚT X & CHỈNH DELAY)
 -- ============================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoQuest_Mini"
@@ -42,7 +43,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 275)
+MainFrame.Size = UDim2.new(0, 230, 0, 310) -- Nới rộng thêm để chứa ô nhập Delay
 MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -119,6 +120,40 @@ local paddingSpacer = Instance.new("Frame", ContentFrame)
 paddingSpacer.Size = UDim2.new(1, 0, 0, 2)
 paddingSpacer.BackgroundTransparency = 1
 
+-- [MỚI] KHUNG CHỈNH DELAY
+local DelayFrame = Instance.new("Frame", ContentFrame)
+DelayFrame.Size = UDim2.new(0.9, 0, 0, 25)
+DelayFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Instance.new("UICorner", DelayFrame).CornerRadius = UDim.new(0, 4)
+
+local DelayLabel = Instance.new("TextLabel", DelayFrame)
+DelayLabel.Size = UDim2.new(0.65, 0, 1, 0)
+DelayLabel.BackgroundTransparency = 1
+DelayLabel.Text = "Delay Bấm (giây):"
+DelayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+DelayLabel.Font = Enum.Font.GothamBold
+DelayLabel.TextSize = 10
+
+local DelayInput = Instance.new("TextBox", DelayFrame)
+DelayInput.Size = UDim2.new(0.35, 0, 1, 0)
+DelayInput.Position = UDim2.new(0.65, 0, 0, 0)
+DelayInput.BackgroundTransparency = 1
+DelayInput.Text = tostring(_G.ClickDelay)
+DelayInput.TextColor3 = Color3.fromRGB(0, 255, 150)
+DelayInput.Font = Enum.Font.GothamBold
+DelayInput.TextSize = 11
+
+-- Xử lý khi nhập Delay mới
+DelayInput.FocusLost:Connect(function()
+    local val = tonumber(DelayInput.Text)
+    if val and val > 0 then
+        _G.ClickDelay = val
+    else
+        DelayInput.Text = tostring(_G.ClickDelay) -- Trả về cũ nếu nhập sai
+    end
+end)
+
+-- NÚT LÀM MỚI
 local RefreshBtn = Instance.new("TextButton", ContentFrame)
 RefreshBtn.Size = UDim2.new(0.9, 0, 0, 25)
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -300,7 +335,10 @@ local function PassiveClick(btn)
 end
 
 task.spawn(function()
-    while task.wait(0.5) do
+    while true do
+        -- [MỚI] Chờ theo thời gian Delay bạn cấu hình trên UI
+        task.wait(_G.ClickDelay)
+        
         local questGui = player.PlayerGui:FindFirstChild("QuestGui")
         if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
@@ -387,14 +425,12 @@ task.spawn(function()
                     local btnLeave = opts:FindFirstChild("Leave")
 
                     if _G.AutoSam then
-                        -- FIX Ở ĐÂY: Đối với Sam, BẮT BUỘC ưu tiên bấm Option trước tiên
-                        -- Vì nút Option xuất hiện cùng lúc với nút Next
+                        -- Đối với Sam, BẮT BUỘC ưu tiên bấm Option trước tiên
                         if btnOption and btnOption.Visible then PassiveClick(btnOption)
                         elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
                         elseif btnNext and btnNext.Visible then PassiveClick(btnNext)
                         end
                     else
-                        -- Đối với các Quest khác, giữ nguyên logic cũ
                         if btnNext and btnNext.Visible then PassiveClick(btnNext)
                         elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
                         elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
