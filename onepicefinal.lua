@@ -1,5 +1,5 @@
 -- =========================================================================
--- [ULTIMATE MASTER] YUIHUB V25 - FRUIT DROP, SAM NPC, SPAWNBOX, COLOR SLIDER
+-- [ULTIMATE MASTER] YUIHUB V26 - UNIFIED DIALOGUE ENGINE (FIX QUEST & SAM)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -50,7 +50,7 @@ _G.Yui = {
     TargetPlayer = "None", AutoHunt = false, HuntDist = 5, ESPPlayer = false, Spectate = false,
     AutoRejoin = false, AutoExecute = false, ExecuteScript = "", 
     AutoLoadConfig = false, AutoLoadName = "", ConfigName = "Default", AutoHop = false, HopDelay = 3, 
-    CustomHue = 330 -- Default Pink Hue
+    CustomHue = 330
 }
 
 -- Config System
@@ -186,7 +186,7 @@ local function ShowMainGui()
     if IntroGui then IntroGui:Destroy() end
     if ScreenGui and ScreenGui:FindFirstChild("YuiMainFrame") then ScreenGui.YuiMainFrame.Visible = true end
 end
-task.delay(4, ShowMainGui) -- Failsafe
+task.delay(4, ShowMainGui)
 
 task.spawn(function()
     TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, -300, 1, -80)}):Play()
@@ -227,7 +227,7 @@ BindTap(OpenIconBtn, function() MainFrame.Visible = true OpenIconBtn.Visible = f
 local Header = Instance.new("Frame", MainFrame) Header.Size = UDim2.new(1, -20, 0, 60) Header.Position = UDim2.new(0, 10, 0, 10) Header.BackgroundColor3 = Theme.HeaderBg Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8) Instance.new("UIStroke", Header).Color = Theme.Stroke
 local BlueLine = Instance.new("Frame", Header) BlueLine.Size = UDim2.new(0, 3, 0, 30) BlueLine.Position = UDim2.new(0, 15, 0, 15) BlueLine.BackgroundColor3 = Theme.Accent Instance.new("UICorner", BlueLine).CornerRadius = UDim.new(1, 0) table.insert(DynamicUIElements, {Obj = BlueLine, Prop = "BackgroundColor3"})
 local WelcomeText = Instance.new("TextLabel", Header) WelcomeText.Size = UDim2.new(0, 150, 0, 15) WelcomeText.Position = UDim2.new(0, 25, 0, 15) WelcomeText.BackgroundTransparency = 1 WelcomeText.Text = "Ultimate Script Hub" WelcomeText.TextColor3 = Theme.TextSub WelcomeText.Font = Enum.Font.Gotham WelcomeText.TextSize = 10 WelcomeText.TextXAlignment = Enum.TextXAlignment.Left
-local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V25" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
+local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V26" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
 
 local MinBtn = Instance.new("TextButton", Header) MinBtn.Size = UDim2.new(0, 30, 0, 30) MinBtn.Position = UDim2.new(1, -65, 0, 15) MinBtn.BackgroundTransparency = 1 MinBtn.Text = "—" MinBtn.TextColor3 = Theme.TextTitle MinBtn.Font = Enum.Font.GothamBold MinBtn.TextSize = 14
 BindTap(MinBtn, function() MainFrame.Visible = false OpenIconBtn.Visible = true for _, dd in ipairs(AllDropdowns) do dd.Visible = false end end)
@@ -377,6 +377,11 @@ local function CreateMultiDropdown(labelStr, parentBox, globalList)
     return populate
 end
 
+local function SilentClick(btn)
+    if not btn then return end
+    pcall(function() firesignal(btn.MouseButton1Click) end) pcall(function() firesignal(btn.Activated) end) pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
+end
+
 -- ============================
 -- MENU TABS & SECTIONS
 -- ============================
@@ -432,7 +437,6 @@ CreateButton("Refresh Weapons", AtkBox, function()
     for _, v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("Tool") then table.insert(t, v.Name) end end
     UpdateWepDrop(t)
 end)
-Setters.AutoClick = CreateToggle("Auto Mouse Click", false, AtkBox, function(v) _G.Yui.AutoClick = v end)
 Setters.FastAttack = CreateToggle("Auto Fast Attack (Silent)", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
 
 local ConfigBox = CreateSection("Position & Safe", MainR)
@@ -546,8 +550,8 @@ Setters.CamUnderground = CreateToggle("Hide Camera Underground", false, SkyBaseB
 Setters.CollectSpeed = CreateSlider("Sweep Delay (s)", 0.1, 2, 0.2, SkyBaseBox, function(v) _G.Yui.CollectSpeed = v end, true)
 
 local CrateBox = CreateSection("Chest & Barrel Sweep", ResL)
-Setters.CollectChest = CreateToggle("Auto Chests (No Loop)", false, CrateBox, function(v) _G.Yui.CollectChest = v end)
-Setters.CollectBarrel = CreateToggle("Auto Barrels/Crates (No Loop)", false, CrateBox, function(v) _G.Yui.CollectBarrel = v end)
+Setters.CollectChest = CreateToggle("Auto Chests", false, CrateBox, function(v) _G.Yui.CollectChest = v end)
+Setters.CollectBarrel = CreateToggle("Auto Barrels/Crates", false, CrateBox, function(v) _G.Yui.CollectBarrel = v end)
 
 local JuiceBox = CreateSection("Juice & Drinks", ResR)
 Setters.AutoJuice = CreateToggle("Auto Make Juice", false, JuiceBox, function(v) _G.Yui.AutoJuice = v end)
@@ -689,7 +693,7 @@ end)
 local SysBox = CreateSection("System Core", SetL)
 Setters.AntiAFK = CreateToggle("Anti AFK (No Kick)", _G.Yui.AntiAFK, SysBox, function(v) _G.Yui.AntiAFK = v end)
 Setters.AutoRejoin = CreateToggle("Auto Rejoin", _G.Yui.AutoRejoin, SysBox, function(v) _G.Yui.AutoRejoin = v SaveCoreSettings() end)
-Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin/Hop", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
+Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
 CreateTextBox("Paste Loadstring URL Here", SysBox, _G.Yui.ExecuteScript, function(text) _G.Yui.ExecuteScript = text SaveCoreSettings() end)
 CreateButton("Reset All Toggles", SysBox, function() for _, func in pairs(Setters) do pcall(function() func(false) end) end end)
 
@@ -738,11 +742,6 @@ end)
 CreateButton("Remove Auto Load", ConfigBox2, function()
     _G.Yui.AutoLoadConfig = false _G.Yui.AutoLoadName = "" AutoLoadStatus.Text = "Auto Load: OFF" SaveCoreSettings()
 end)
-
-local function SilentClick(btn)
-    if not btn then return end
-    pcall(function() firesignal(btn.MouseButton1Click) end) pcall(function() firesignal(btn.Activated) end) pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
-end
 
 -- =========================================================================
 -- [MASTER THREADS] 
@@ -805,7 +804,7 @@ end)
 -- CAMERA UNDERGROUND LOCK
 RunService.RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
-    local isCollecting = _G.Yui.CollectChest or _G.Yui.CollectBarrel or _G.Yui.AutoJuice or _G.Yui.AutoSpawnBox
+    local isCollecting = _G.Yui.CollectChest or _G.Yui.CollectBarrel or _G.Yui.AutoFruit or _G.Yui.AutoJuice or _G.Yui.AutoSpawnBox
     if _G.Yui.CamUnderground and isCollecting then
         local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then cam.CameraType = Enum.CameraType.Scriptable cam.CFrame = CFrame.new(root.Position - Vector3.new(0, 5000, 0), root.Position - Vector3.new(0, 5001, 0)) end
@@ -875,8 +874,7 @@ task.spawn(function()
                 local pN = string.lower(obj.Parent and obj.Parent.Name or "")
                 if (string.find(pN, "spawnbox") or string.find(pN, "spawns")) and obj:IsA("BasePart") then
                     MoveTo(obj.CFrame * CFrame.new(0, 2, 0))
-                    local cd = obj:FindFirstChildOfClass("ClickDetector")
-                    if cd then fireclickdetector(cd, 1) end
+                    local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 1) end
                     task.wait(_G.Yui.CollectSpeed) didAction = true
                 end
             end
@@ -904,7 +902,7 @@ task.spawn(function()
             if didAction and anchor and _G.Yui.CollectMethod == "Teleport (Return)" then MoveTo(anchor) end
         end
 
-        -- [D] AUTO CHEST (WIGGLE)
+        -- [D] AUTO CHEST
         if _G.Yui.CollectChest and not didAction then
             local chests = {}
             for _, obj in pairs(Workspace:GetDescendants()) do
@@ -955,18 +953,114 @@ task.spawn(function()
 end)
 
 local LastAttack = tick()
+local function GetQuestMobName()
+    local questGui = LocalPlayer.PlayerGui:FindFirstChild("QuestGui")
+    if questGui and questGui:FindFirstChild("QuestsFrame") and questGui.QuestsFrame.Visible then
+        local scroll = questGui.QuestsFrame:FindFirstChild("QuestsScroll")
+        if scroll then
+            local objective = scroll:FindFirstChild("Objective")
+            if objective and objective.Text ~= "" then return string.gsub(objective.Text, "%s*%d+/%d+$", "") end
+        end
+    end return nil
+end
+
+local function HasActiveQuest() return GetQuestMobName() ~= nil end
+local function SilentClick(btn)
+    if not btn then return end
+    pcall(function() firesignal(btn.MouseButton1Click) end) pcall(function() firesignal(btn.Activated) end) pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
+end
+
+-- BỘ NÃO ĐỐI THOẠI & NHẬN QUEST
+task.spawn(function()
+    while task.wait(0.5) do
+        local pGui = LocalPlayer.PlayerGui if not pGui then continue end
+
+        -- Auto Spawn
+        if _G.Yui.AutoSpawn then
+            local loadFrame = pGui:FindFirstChild("Load") and pGui.Load:FindFirstChild("Frame") and pGui.Load.Frame:FindFirstChild("Load")
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            if (hum and hum.Health == 0) or (loadFrame and loadFrame.Visible) then
+                if loadFrame then SilentClick(loadFrame) end
+                pcall(function() local cam = Workspace.CurrentCamera local char = LocalPlayer.Character if cam and char and char:FindFirstChild("Humanoid") then cam.CameraSubject = char.Humanoid cam.CameraType = Enum.CameraType.Custom end end)
+            end
+        end
+        
+        -- Auto Upgrade Capacity
+        if _G.Yui.AutoUpgradeCap then
+            for _, gui in pairs(pGui:GetDescendants()) do
+                if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                    if gui.Text and string.find(string.lower(gui.Text), "upgrade capacity") then SilentClick(gui) end
+                end
+            end
+        end
+
+        local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
+        local dialogue = questGui:FindFirstChild("Dialogue")
+        
+        -- Gọi NPC
+        if not (dialogue and dialogue.Visible) then
+            if _G.Yui.AutoSam then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name == "Sam" and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+                        MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
+                        local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
+                    end
+                end
+            elseif _G.Yui.AutoNormalQuest and not HasActiveQuest() and _G.Yui.SelectedNormalQuest ~= "" then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name == _G.Yui.SelectedNormalQuest and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+                        MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
+                        local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
+                    end
+                end
+            elseif _G.Yui.AutoDailyQuest and not HasActiveQuest() and _G.Yui.SelectedDailyQuest ~= "" then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name == _G.Yui.SelectedDailyQuest and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+                        MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
+                        local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
+                    end
+                end
+            end
+        end
+
+        -- Xử lý Bảng Thoại
+        if dialogue and dialogue.Visible then
+            local shouldHide = _G.Yui.AutoAcceptQuest or _G.Yui.AutoSam or _G.Yui.AutoGetRod
+            if shouldHide then
+                pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
+            else
+                pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end)
+            end
+
+            local opts = dialogue:FindFirstChild("Options")
+            if opts then
+                if _G.Yui.AutoSam then
+                    for _, btn in pairs(opts:GetChildren()) do
+                        if btn:IsA("TextButton") and btn.Visible and string.find(string.lower(btn.Text), "compasses") then
+                            SilentClick(btn)
+                        end
+                    end
+                elseif _G.Yui.AutoAcceptQuest then
+                    local btnAccept, btnDecline = nil, nil
+                    for _, btn in pairs(opts:GetChildren()) do
+                        if btn:IsA("TextButton") and btn.Visible then
+                            local txt = string.lower(btn.Text)
+                            if string.find(txt, "nevermind") or string.find(txt, "leave") or string.find(txt, "no") then btnDecline = btn else btnAccept = btn end
+                        end
+                    end
+                    if btnAccept then SilentClick(btnAccept) elseif btnDecline then SilentClick(btnDecline) end
+                end
+            end
+        end
+    end
+end)
 
 -- FARMING & ATTACK
 task.spawn(function()
     while task.wait() do
         local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart") if not root then continue end
 
-        local targetMobName = ""
-        local pGui = LocalPlayer.PlayerGui local questGui = pGui:FindFirstChild("QuestGui")
-        if questGui and questGui:FindFirstChild("QuestsFrame") and questGui.QuestsFrame.Visible then
-            local obj = questGui.QuestsFrame:FindFirstChild("QuestsScroll") and questGui.QuestsFrame.QuestsScroll:FindFirstChild("Objective")
-            if obj and obj.Text ~= "" then targetMobName = string.gsub(obj.Text, "%s*%d+/%d+$", "") end
-        end
+        local targetMobName = GetQuestMobName()
 
         if _G.Yui.AutoFarm and not _G.Yui.AutoHunt then
             pcall(function()
@@ -974,7 +1068,7 @@ task.spawn(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj:IsA("Model") and obj.Parent and not string.find(string.lower(obj.Parent.Name), "quest") and obj:FindFirstChildOfClass("Humanoid") and obj:FindFirstChildOfClass("Humanoid").Health > 0 then
                         local cleanName = string.gsub(obj.Name, "%[.-%]", "") cleanName = string.gsub(cleanName, "%d+$", "") cleanName = string.match(cleanName, "^%s*(.-)%s*$") or cleanName
-                        if (_G.Yui.SelectedMobs[cleanName] or (targetMobName~="" and string.find(obj.Name, targetMobName, 1, true))) and obj:FindFirstChild("HumanoidRootPart") then
+                        if (_G.Yui.SelectedMobs[cleanName] or (targetMobName and string.find(obj.Name, targetMobName, 1, true))) and obj:FindFirstChild("HumanoidRootPart") then
                             local dist = (root.Position - obj.HumanoidRootPart.Position).Magnitude
                             if dist < shortest then shortest = dist target = obj end
                         end
@@ -1005,7 +1099,7 @@ task.spawn(function()
                 local equippedTool = char:FindFirstChildOfClass("Tool")
                 if equippedTool and equippedTool.Name == _G.Yui.SelectedWeapon then
                     if _G.Yui.FastAttack then
-                        equippedTool:Activate() for _, event in pairs(getconnections(equippedTool.Activated)) do event:Fire() end
+                        equippedTool:Activate()
                     elseif _G.Yui.AutoClick then
                         equippedTool:Activate()
                         if tick() - LastAttack >= 0.15 then
@@ -1020,14 +1114,12 @@ task.spawn(function()
             for key, isEnabled in pairs(_G.Yui.AutoSkill) do if isEnabled then pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game) end) end end
         end
 
-        -- HAKI
         if _G.Yui.AutoHaki.E and not HakiStates.E then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) task.wait(0.1) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) HakiStates.E = true end
         if _G.Yui.AutoHaki.R and not HakiStates.R then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game) task.wait(0.1) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game) HakiStates.R = true end
         if _G.Yui.AutoHaki.T then VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.T, false, game) task.wait(0.1) VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.T, false, game) end
     end
 end)
 
--- HOLD SKILL LOOP
 local LastHoldTicks = {R=0, Z=0, X=0, C=0, V=0, B=0, N=0, F=0}
 RunService.Heartbeat:Connect(function()
     if CurrentTarget and CurrentTarget:FindFirstChild("HumanoidRootPart") then
@@ -1039,89 +1131,6 @@ RunService.Heartbeat:Connect(function()
                 end)
             end
         end
-    end
-end)
-
--- QUEST, SAM & AUTO CAPACITY
-task.spawn(function()
-    while task.wait(0.5) do
-        local pGui = LocalPlayer.PlayerGui if not pGui then continue end
-
-        -- Auto Spawn (Fix)
-        if _G.Yui.AutoSpawn then
-            local loadFrame = pGui:FindFirstChild("Load") and pGui.Load:FindFirstChild("Frame") and pGui.Load.Frame:FindFirstChild("Load")
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-            if (hum and hum.Health == 0) or (loadFrame and loadFrame.Visible) then
-                if loadFrame then SilentClick(loadFrame) end
-                pcall(function() local cam = Workspace.CurrentCamera local char = LocalPlayer.Character if cam and char and char:FindFirstChild("Humanoid") then cam.CameraSubject = char.Humanoid cam.CameraType = Enum.CameraType.Custom end end)
-            end
-        end
-        
-        -- Auto Upgrade Capacity
-        if _G.Yui.AutoUpgradeCap then
-            for _, gui in pairs(pGui:GetDescendants()) do
-                if gui:IsA("TextButton") or gui:IsA("ImageButton") then
-                    if gui.Text and string.find(string.lower(gui.Text), "upgrade capacity") then SilentClick(gui) end
-                end
-            end
-        end
-
-        local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
-        local dialogue = questGui:FindFirstChild("Dialogue")
-        
-        -- Sam NPC (Devil Fruit Compass)
-        if _G.Yui.AutoSam and (not dialogue or not dialogue.Visible) then
-            for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj.Name == "Sam" and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-                    MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
-                    local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
-                end
-            end
-        end
-
-        if _G.Yui.AutoSam and dialogue and dialogue.Visible then
-            local opts = dialogue:FindFirstChild("Options")
-            if opts then
-                for _, btn in pairs(opts:GetChildren()) do
-                    if btn:IsA("TextButton") and string.find(string.lower(btn.Text), "compasses") then SilentClick(btn) end
-                end
-            end
-        end
-
-        -- Normal Quest
-        if _G.Yui.AutoNormalQuest and (not dialogue or not dialogue.Visible) and _G.Yui.SelectedNormalQuest ~= "" then
-            for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj.Name == _G.Yui.SelectedNormalQuest and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-                    local pN, oN = string.lower(obj.Parent and obj.Parent.Name or ""), string.lower(obj.Name)
-                    if string.find(pN, "quest") or string.find(oN, "quest") then
-                        MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
-                        local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
-                    end
-                end
-            end
-        end
-
-        -- Daily Quest
-        if _G.Yui.AutoDailyQuest and (not dialogue or not dialogue.Visible) and _G.Yui.SelectedDailyQuest ~= "" then
-            for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj.Name == _G.Yui.SelectedDailyQuest and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-                    local pN, oN = string.lower(obj.Parent and obj.Parent.Name or ""), string.lower(obj.Name)
-                    if string.find(pN, "daily") or string.find(oN, "daily") then
-                        MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0,0,3))
-                        local cd = obj:FindFirstChildOfClass("ClickDetector") if cd then fireclickdetector(cd, 0) end break 
-                    end
-                end
-            end
-        end
-
-        if _G.Yui.AutoAcceptQuest and dialogue and dialogue.Visible and not _G.Yui.AutoSam then
-            pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
-            local opts = dialogue:FindFirstChild("Options")
-            if opts then
-                local btnNext = opts:FindFirstChild("Next") local btnOption = opts:FindFirstChild("Option") local btnOption2 = opts:FindFirstChild("Option2") local btnLeave = opts:FindFirstChild("Leave")
-                if btnNext and btnNext.Visible then SilentClick(btnNext) elseif btnOption and btnOption.Visible then SilentClick(btnOption) elseif btnOption2 and btnOption2.Visible then SilentClick(btnOption2) elseif btnLeave and btnLeave.Visible then SilentClick(btnLeave) end
-            end
-        elseif not _G.Yui.AutoAcceptQuest and not _G.Yui.AutoGetRod and dialogue and dialogue.Visible then pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end) end
     end
 end)
 
