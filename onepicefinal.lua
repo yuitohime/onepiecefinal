@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - THANH KÉO (SLIDER), CHẾ ĐỘ GIỚI HẠN & AUTO TELEPORT
+-- AUTO QUEST & SAM - FIX DỊCH CHUYỂN GẦN & BẤM LEAVE BƯỚC CUỐI
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -54,7 +54,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 240, 0, 430) -- Mở rộng tối đa để chứa đủ Sliders và Nút
+MainFrame.Size = UDim2.new(0, 240, 0, 430)
 MainFrame.Position = UDim2.new(0.5, -120, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -465,9 +465,13 @@ task.spawn(function()
                     if btnOption and btnOption.Visible then 
                         PassiveClick(btnOption)
                         RegisterAction()
-                        IncrementQuestLimit() -- Tăng biến đếm khi click Option thành công
+                        IncrementQuestLimit() -- Tăng biến đếm khi click Option
                     elseif btnNext and btnNext.Visible then 
                         PassiveClick(btnNext)
+                        RegisterAction()
+                    elseif btnLeave and btnLeave.Visible then 
+                        -- NÂNG CẤP: BẤM LEAVE ĐỂ THOÁT KHỎI HỘI THOẠI VÀ CHUẨN BỊ CHO LẦN NHẬN TIẾP THEO
+                        PassiveClick(btnLeave)
                         RegisterAction()
                     end
                 else
@@ -496,9 +500,9 @@ task.spawn(function()
                         if string.find(pName, "quest") then
                             local root = obj:FindFirstChild("HumanoidRootPart")
                             if root then
-                                -- TỰ ĐỘNG TELEPORT ĐẾN SAM
+                                -- NÂNG CẤP: TELEPORT NGAY TRƯỚC MẶT SAM (Không kẹt vào người NPC)
                                 if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                                    player.Character.HumanoidRootPart.CFrame = root.CFrame
+                                    player.Character.HumanoidRootPart.CFrame = root.CFrame * CFrame.new(0, 0, -3)
                                 end
 
                                 local cd = root:FindFirstChildOfClass("ClickDetector")
