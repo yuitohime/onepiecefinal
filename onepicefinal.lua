@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - SỬA LỖI TỰ ĐỘNG BẤM THOẠI KHI TẮT AUTO
+-- AUTO QUEST & SAM - FIX LỖI KẸT BẢNG THOẠI CỦA SAM
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -386,12 +386,20 @@ task.spawn(function()
                     local btnOption2 = opts:FindFirstChild("Option2") -- Lựa chọn 2
                     local btnLeave = opts:FindFirstChild("Leave")
 
-                    -- Mã sẽ luôn ưu tiên bấm Option (lựa chọn 1) thay vì Option2. 
-                    -- Nếu có 2 lần hỏi, nó sẽ bấm Option 2 lần liên tiếp đúng như yêu cầu đối với Sam.
-                    if btnNext and btnNext.Visible then PassiveClick(btnNext)
-                    elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
-                    elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
-                    elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                    if _G.AutoSam then
+                        -- FIX Ở ĐÂY: Đối với Sam, BẮT BUỘC ưu tiên bấm Option trước tiên
+                        -- Vì nút Option xuất hiện cùng lúc với nút Next
+                        if btnOption and btnOption.Visible then PassiveClick(btnOption)
+                        elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
+                        elseif btnNext and btnNext.Visible then PassiveClick(btnNext)
+                        end
+                    else
+                        -- Đối với các Quest khác, giữ nguyên logic cũ
+                        if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                        elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
+                        elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
+                        elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                    end
                 end
             end
         else
