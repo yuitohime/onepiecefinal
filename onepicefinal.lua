@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - ĐỒNG BỘ DELAY CHO MỌI THAO TÁC (CHỐNG KẸT)
+-- AUTO QUEST & SAM - CHUẨN HÓA DELAY & KHÔNG GIẤU BẢNG THOẠI
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -17,7 +17,16 @@ _G.AutoDaily = false
 _G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
-_G.ClickDelay = 1 -- Mặc định mỗi thao tác cách nhau 1 giây
+_G.ClickDelay = 1 
+
+-- Biến đếm thời gian thực (Giúp Delay mượt mà, không bị đóng băng kịch bản)
+local lastActionTime = 0
+local function CanAct()
+    return (tick() - lastActionTime) >= _G.ClickDelay
+end
+local function RegisterAction()
+    lastActionTime = tick()
+end
 
 -- ============================
 -- 1. HÀM CẢM ỨNG CHUẨN MOBILE
@@ -352,7 +361,7 @@ BindTap(SamToggle, function()
 end)
 
 -- ============================
--- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG (ĐỒNG BỘ DELAY)
+-- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG
 -- ============================
 local function HasActiveQuest()
     local questGui = player.PlayerGui:FindFirstChild("QuestGui")
@@ -376,66 +385,72 @@ local function PassiveClick(btn)
 end
 
 task.spawn(function()
-    while task.wait(0.1) do -- Quét màn hình liên tục để phản hồi nhạy bén
+    while task.wait(0.1) do -- Quét cực nhanh (0.1s) nhưng chỉ thực hiện nhấp khi đủ Delay
         
         local questGui = player.PlayerGui:FindFirstChild("QuestGui")
-        local dialogue = questGui and questGui:FindFirstChild("Dialogue")
+        if not questGui then continue end
+        local dialogue = questGui:FindFirstChild("Dialogue")
         
-        -- Nếu tắt hết Auto, trả lại vị trí bảng thoại
+        -- Nếu tắt hết mọi Auto thì vòng lặp không xử lý gì
         if not (_G.AutoNormal or _G.AutoDaily or _G.AutoSam) then
-            if dialogue and dialogue.Visible and dialogue.Position.X.Scale == 5 then
-                pcall(function() dialogue.Position = UDim2.new(0.5, 0, 0.8, 0) end) 
-            end
             continue
         end
 
         -- ==========================================
-        -- BƯỚC 1: XỬ LÝ BẢNG THOẠI (NẾU ĐANG MỞ)
+        -- 1. TỰ ĐỘNG BẤM BẢNG THOẠI (BẢNG SẼ KHÔNG BỊ GIẤU ĐI NỮA)
         -- ==========================================
         if dialogue and dialogue.Visible then
-            pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
             local opts = dialogue:FindFirstChild("Options")
-            if opts then
+            if opts and CanAct() then -- Chỉ thực hiện khi đã chờ đủ Delay
                 local btnNext = opts:FindFirstChild("Next")
-                local btnOption = opts:FindFirstChild("Option")
-                local btnOption2 = opts:FindFirstChild("Option2")
+                local btnOption = opts:FindFirstChild("Option")  -- Lựa chọn 1
+                local btnOption2 = opts:FindFirstChild("Option2") -- Lựa chọn 2
                 local btnLeave = opts:FindFirstChild("Leave")
 
-                -- TẠM DỪNG THEO ĐÚNG DELAY TRƯỚC KHI BẤM (CHỐNG LẶP/SPAM KHIẾN LỖI)
-                task.wait(_G.ClickDelay)
-                
                 if _G.AutoSam then
                     if btnOption and btnOption.Visible then 
                         PassiveClick(btnOption)
+                        RegisterAction()
                     elseif btnNext and btnNext.Visible then 
                         PassiveClick(btnNext)
+                        RegisterAction()
                     end
                 else
-                    if btnNext and btnNext.Visible then PassiveClick(btnNext)
-                    elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
-                    elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
-                    elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                    if btnNext and btnNext.Visible then 
+                        PassiveClick(btnNext) RegisterAction()
+                    elseif btnOption and btnOption.Visible then 
+                        PassiveClick(btnOption) RegisterAction()
+                    elseif btnOption2 and btnOption2.Visible then 
+                        PassiveClick(btnOption2) RegisterAction()
+                    elseif btnLeave and btnLeave.Visible then 
+                        PassiveClick(btnLeave) RegisterAction() 
+                    end
                 end
             end
-            continue -- Nếu đang xử lý bảng thoại thì bỏ qua việc nhận NPC bên dưới
+            continue -- Nếu đang hiện bảng thoại thì dừng lại, không tiếp tục bấm NPC
         end
 
         -- ==========================================
-        -- BƯỚC 2: NHẬN NPC TỪ XA
+        -- 2. NHẬN NPC TỪ XA
         -- ==========================================
-        if not HasActiveQuest() then
+        if not HasActiveQuest() and CanAct() then -- Chỉ click NPC khi đã qua thời gian Delay
             local hasClickedNPC = false
 
             if _G.AutoSam then
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
-                        local root = obj:FindFirstChild("HumanoidRootPart")
-                        local cd = root and root:FindFirstChildOfClass("ClickDetector")
-                        if cd and fireclickdetector then 
-                            task.wait(_G.ClickDelay) -- ĐỢI DELAY TRƯỚC KHI BẤM VÀO NPC
-                            fireclickdetector(cd, 0) 
-                            hasClickedNPC = true
-                            break
+                    if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent then
+                        local pName = string.lower(obj.Parent.Name)
+                        if string.find(pName, "quest") then
+                            local root = obj:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                local cd = root:FindFirstChildOfClass("ClickDetector")
+                                if cd and fireclickdetector then 
+                                    fireclickdetector(cd, 0) 
+                                    RegisterAction()
+                                    hasClickedNPC = true
+                                    break
+                                end
+                            end
                         end
                     end
                 end
@@ -450,12 +465,14 @@ task.spawn(function()
                         if string.find(pName, "quest") and string.find(pName, "daily") then
                             if _G.SelectedDaily == "" or _G.SelectedDaily == obj.Name then
                                 local root = obj:FindFirstChild("HumanoidRootPart")
-                                local cd = root and root:FindFirstChildOfClass("ClickDetector")
-                                if cd and fireclickdetector then 
-                                    task.wait(_G.ClickDelay) -- ĐỢI DELAY
-                                    fireclickdetector(cd, 0) 
-                                    hasClickedNPC = true
-                                    break
+                                if root then
+                                    local cd = root:FindFirstChildOfClass("ClickDetector")
+                                    if cd and fireclickdetector then 
+                                        fireclickdetector(cd, 0) 
+                                        RegisterAction()
+                                        hasClickedNPC = true
+                                        break
+                                    end
                                 end
                             end
                         end
@@ -471,12 +488,14 @@ task.spawn(function()
                         local pName = string.lower(obj.Parent.Name)
                         if string.find(pName, "quest") and not string.find(pName, "daily") then
                             local root = obj:FindFirstChild("HumanoidRootPart")
-                            local cd = root and root:FindFirstChildOfClass("ClickDetector")
-                            if cd and fireclickdetector then 
-                                task.wait(_G.ClickDelay) -- ĐỢI DELAY
-                                fireclickdetector(cd, 0) 
-                                break 
+                            if root then
+                                local cd = root:FindFirstChildOfClass("ClickDetector")
+                                if cd and fireclickdetector then 
+                                    fireclickdetector(cd, 0) 
+                                    RegisterAction()
+                                end
                             end
+                            break 
                         end
                     end
                 end
