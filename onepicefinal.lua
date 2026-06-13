@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST - THÊM NÚT AUTO SAM RIÊNG & KÉO THẢ MƯỢT
+-- AUTO QUEST & SAM - SỬA LỖI TỰ ĐỘNG BẤM THOẠI KHI TẮT AUTO
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -14,7 +14,7 @@ for _, gui in pairs(CoreGui:GetChildren()) do if gui.Name == "AutoQuest_Mini" th
 -- Biến Global Tách Biệt
 _G.AutoNormal = false
 _G.AutoDaily = false
-_G.AutoSam = false -- Thêm biến cho Sam
+_G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
 
@@ -42,7 +42,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 275) -- Đã nới rộng chiều cao để chứa nút Sam
+MainFrame.Size = UDim2.new(0, 230, 0, 275)
 MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -83,7 +83,7 @@ BindTap(CloseBtn, function()
     ScreenGui:Destroy()
 end)
 
--- Kéo thả mượt mà (Hoạt động tốt trên cả PC & Mobile)
+-- Kéo thả mượt mà
 local dragToggle, dragInput, dragStart, startPos
 Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -175,7 +175,6 @@ SamToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 SamToggle.Font = Enum.Font.GothamBold
 SamToggle.TextSize = 11
 Instance.new("UICorner", SamToggle).CornerRadius = UDim.new(0, 4)
--- Highlight viền cho nổi bật
 local SamStroke = Instance.new("UIStroke", SamToggle)
 SamStroke.Color = Color3.fromRGB(255, 85, 255)
 SamStroke.Thickness = 1
@@ -313,10 +312,8 @@ task.spawn(function()
             if _G.AutoSam then
                 local foundSam = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    -- Tìm đúng tên "Sam"
                     if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent then
                         local pName = string.lower(obj.Parent.Name)
-                        -- Phải nằm trong thư mục Quest
                         if string.find(pName, "quest") then
                             local root = obj:FindFirstChild("HumanoidRootPart")
                             if root then
@@ -375,20 +372,32 @@ task.spawn(function()
             end
         end
 
-        -- TỰ ĐỘNG BẤM BẢNG THOẠI
-        if dialogue and dialogue.Visible then
-            pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
-            local opts = dialogue:FindFirstChild("Options")
-            if opts then
-                local btnNext = opts:FindFirstChild("Next")
-                local btnOption = opts:FindFirstChild("Option")
-                local btnOption2 = opts:FindFirstChild("Option2")
-                local btnLeave = opts:FindFirstChild("Leave")
+        -- ==========================================
+        -- TỰ ĐỘNG BẤM BẢNG THOẠI (CHỈ KHI ĐANG BẬT AUTO)
+        -- ==========================================
+        if _G.AutoNormal or _G.AutoDaily or _G.AutoSam then
+            if dialogue and dialogue.Visible then
+                -- Giấu bảng thoại đi cho đỡ vướng màn hình khi Auto
+                pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
+                local opts = dialogue:FindFirstChild("Options")
+                if opts then
+                    local btnNext = opts:FindFirstChild("Next")
+                    local btnOption = opts:FindFirstChild("Option")  -- Lựa chọn 1
+                    local btnOption2 = opts:FindFirstChild("Option2") -- Lựa chọn 2
+                    local btnLeave = opts:FindFirstChild("Leave")
 
-                if btnNext and btnNext.Visible then PassiveClick(btnNext)
-                elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
-                elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
-                elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                    -- Mã sẽ luôn ưu tiên bấm Option (lựa chọn 1) thay vì Option2. 
+                    -- Nếu có 2 lần hỏi, nó sẽ bấm Option 2 lần liên tiếp đúng như yêu cầu đối với Sam.
+                    if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                    elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
+                    elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
+                    elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                end
+            end
+        else
+            -- KHI TẮT AUTO: Trả lại bảng thoại vị trí cũ nếu lúc trước đang bị giấu
+            if dialogue and dialogue.Visible and dialogue.Position.X.Scale == 5 then
+                pcall(function() dialogue.Position = UDim2.new(0.5, 0, 0.8, 0) end) 
             end
         end
     end
