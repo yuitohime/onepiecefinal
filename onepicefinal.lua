@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - CHUẨN HÓA DELAY & KHÔNG GIẤU BẢNG THOẠI
+-- AUTO QUEST & SAM - THANH KÉO (SLIDER), CHẾ ĐỘ GIỚI HẠN & AUTO TELEPORT
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -11,40 +11,42 @@ local player = Players.LocalPlayer
 if not pcall(function() local _ = CoreGui.Name end) then CoreGui = player:WaitForChild("PlayerGui") end
 for _, gui in pairs(CoreGui:GetChildren()) do if gui.Name == "AutoQuest_Mini" then gui:Destroy() end end
 
--- Biến Global Tách Biệt
+-- ============================
+-- BIẾN GLOBAL
+-- ============================
 _G.AutoNormal = false
 _G.AutoDaily = false
 _G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
-_G.ClickDelay = 1 
 
--- Biến đếm thời gian thực (Giúp Delay mượt mà, không bị đóng băng kịch bản)
+_G.ClickDelayMs = 500      -- Đơn vị ms (mặc định 500ms = 0.5s)
+_G.QuestLimit = 10         -- Giới hạn số lần nhận
+_G.CurrentQuestCount = 0   -- Đếm số lần đã nhận
+_G.Mode = "Inf"            -- "Inf" (Vô hạn) hoặc "Limit" (Giới hạn)
+
 local lastActionTime = 0
 local function CanAct()
-    return (tick() - lastActionTime) >= _G.ClickDelay
+    return (tick() - lastActionTime) >= (_G.ClickDelayMs / 1000)
 end
 local function RegisterAction()
     lastActionTime = tick()
 end
 
 -- ============================
--- 1. HÀM CẢM ỨNG CHUẨN MOBILE
+-- HÀM CẢM ỨNG CHUẨN
 -- ============================
 local function BindTap(element, callback)
     local debounce = false
     element.Activated:Connect(function()
         if not debounce then
-            debounce = true
-            callback()
-            task.wait(0.1)
-            debounce = false
+            debounce = true callback() task.wait(0.1) debounce = false
         end
     end)
 end
 
 -- ============================
--- 2. TẠO MENU MINI (CÓ TELEPORT VÀ KÉO THẢ)
+-- TẠO MENU UI
 -- ============================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoQuest_Mini"
@@ -52,15 +54,15 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 340)
-MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
+MainFrame.Size = UDim2.new(0, 240, 0, 430) -- Mở rộng tối đa để chứa đủ Sliders và Nút
+MainFrame.Position = UDim2.new(0.5, -120, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
 MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 
--- Thanh Header (CẦM VÀO ĐÂY ĐỂ KÉO)
+-- HEADER & KÉO THẢ
 local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 30)
 Header.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
@@ -77,13 +79,12 @@ local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, -30, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "AUTO QUEST & SAM"
+Title.Text = "AUTO QUEST & SAM PRO"
 Title.TextColor3 = Color3.fromRGB(0, 170, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- NÚT X ĐÓNG MENU
 local CloseBtn = Instance.new("TextButton", Header)
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.Position = UDim2.new(1, -30, 0, 0)
@@ -94,105 +95,169 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 13
 
 BindTap(CloseBtn, function()
-    _G.AutoNormal = false
-    _G.AutoDaily = false
-    _G.AutoSam = false
+    _G.AutoNormal = false _G.AutoDaily = false _G.AutoSam = false
     ScreenGui:Destroy()
 end)
 
--- THUẬT TOÁN KÉO THẢ MƯỢT MÀ
 local dragging, dragInput, dragStart, startPos
-local function update(input)
+local function updateDrag(input)
     local delta = input.Position - dragStart
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
 Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+        dragging = true dragStart = input.Position startPos = MainFrame.Position
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
 Header.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
 end)
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then update(input) end
+    if input == dragInput and dragging then updateDrag(input) end
 end)
 
--- Khung chứa Nút
 local ContentFrame = Instance.new("Frame", MainFrame)
 ContentFrame.Size = UDim2.new(1, 0, 1, -30)
 ContentFrame.Position = UDim2.new(0, 0, 0, 30)
 ContentFrame.BackgroundTransparency = 1
 
 local Layout = Instance.new("UIListLayout", ContentFrame)
-Layout.Padding = UDim.new(0, 6)
+Layout.Padding = UDim.new(0, 5)
 Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local paddingSpacer = Instance.new("Frame", ContentFrame)
-paddingSpacer.Size = UDim2.new(1, 0, 0, 2)
-paddingSpacer.BackgroundTransparency = 1
+local spacer1 = Instance.new("Frame", ContentFrame) spacer1.Size = UDim2.new(1,0,0,1) spacer1.BackgroundTransparency = 1
 
--- NÚT DỊCH CHUYỂN
-local TeleportBtn = Instance.new("TextButton", ContentFrame)
-TeleportBtn.Size = UDim2.new(0.9, 0, 0, 25)
-TeleportBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-TeleportBtn.Text = "✈ Dịch Chuyển Đến NPC"
-TeleportBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-TeleportBtn.Font = Enum.Font.GothamBold
-TeleportBtn.TextSize = 11
-Instance.new("UICorner", TeleportBtn).CornerRadius = UDim.new(0, 4)
+-- ============================
+-- HÀM TẠO THANH KÉO (SLIDER)
+-- ============================
+local function CreateSlider(parent, textStr, minVal, maxVal, currentVal, isLimitSlider)
+    local Frame = Instance.new("Frame", parent)
+    Frame.Size = UDim2.new(0.9, 0, 0, 35)
+    Frame.BackgroundTransparency = 1
 
--- KHUNG CHỈNH DELAY
-local DelayFrame = Instance.new("Frame", ContentFrame)
-DelayFrame.Size = UDim2.new(0.9, 0, 0, 25)
-DelayFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Instance.new("UICorner", DelayFrame).CornerRadius = UDim.new(0, 4)
+    local Label = Instance.new("TextLabel", Frame)
+    Label.Size = UDim2.new(1, 0, 0, 15)
+    Label.BackgroundTransparency = 1
+    Label.Text = string.format(textStr, currentVal)
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.GothamBold
+    Label.TextSize = 10
+    Label.TextXAlignment = Enum.TextXAlignment.Left
 
-local DelayLabel = Instance.new("TextLabel", DelayFrame)
-DelayLabel.Size = UDim2.new(0.65, 0, 1, 0)
-DelayLabel.BackgroundTransparency = 1
-DelayLabel.Text = "Delay Bấm (giây):"
-DelayLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-DelayLabel.Font = Enum.Font.GothamBold
-DelayLabel.TextSize = 10
+    local SliderBg = Instance.new("Frame", Frame)
+    SliderBg.Size = UDim2.new(1, 0, 0, 14)
+    SliderBg.Position = UDim2.new(0, 0, 0, 18)
+    SliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 4)
 
-local DelayInput = Instance.new("TextBox", DelayFrame)
-DelayInput.Size = UDim2.new(0.35, 0, 1, 0)
-DelayInput.Position = UDim2.new(0.65, 0, 0, 0)
-DelayInput.BackgroundTransparency = 1
-DelayInput.Text = tostring(_G.ClickDelay)
-DelayInput.TextColor3 = Color3.fromRGB(0, 255, 150)
-DelayInput.Font = Enum.Font.GothamBold
-DelayInput.TextSize = 11
+    local SliderFill = Instance.new("Frame", SliderBg)
+    local pct = (currentVal - minVal) / (maxVal - minVal)
+    SliderFill.Size = UDim2.new(pct, 0, 1, 0)
+    SliderFill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(0, 4)
 
-DelayInput.FocusLost:Connect(function()
-    local val = tonumber(DelayInput.Text)
-    if val and val >= 0 then
-        _G.ClickDelay = val
-    else
-        DelayInput.Text = tostring(_G.ClickDelay)
+    local isDragging = false
+    local function UpdateSlider(input)
+        local posX = math.clamp(input.Position.X - SliderBg.AbsolutePosition.X, 0, SliderBg.AbsoluteSize.X)
+        local percent = posX / SliderBg.AbsoluteSize.X
+        local val = math.floor(minVal + (maxVal - minVal) * percent)
+        SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+        
+        if isLimitSlider then
+            _G.QuestLimit = val
+            Label.Text = string.format(textStr, val) .. " (Đã nhận: " .. _G.CurrentQuestCount .. ")"
+        else
+            _G.ClickDelayMs = val
+            Label.Text = string.format(textStr, val)
+        end
     end
-end)
 
--- NÚT LÀM MỚI
+    SliderBg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true UpdateSlider(input)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(input)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = false
+        end
+    end)
+
+    return Label
+end
+
+-- TẠO 2 THANH KÉO
+CreateSlider(ContentFrame, "Tốc độ Delay: %d ms", 0, 5000, _G.ClickDelayMs, false)
+local LimitLabel = CreateSlider(ContentFrame, "Giới hạn nhận: %d lần", 1, 500, _G.QuestLimit, true)
+
+-- ============================
+-- 2 NÚT CHẾ ĐỘ PHÁT SÁNG
+-- ============================
+local ModeFrame = Instance.new("Frame", ContentFrame)
+ModeFrame.Size = UDim2.new(0.9, 0, 0, 28)
+ModeFrame.BackgroundTransparency = 1
+
+local LimitBtn = Instance.new("TextButton", ModeFrame)
+LimitBtn.Size = UDim2.new(0.48, 0, 1, 0)
+LimitBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+LimitBtn.Text = "CHẾ ĐỘ GIỚI HẠN"
+LimitBtn.Font = Enum.Font.GothamBold
+LimitBtn.TextSize = 10
+Instance.new("UICorner", LimitBtn).CornerRadius = UDim.new(0, 4)
+local LimitStroke = Instance.new("UIStroke", LimitBtn)
+LimitStroke.Thickness = 2
+
+local InfBtn = Instance.new("TextButton", ModeFrame)
+InfBtn.Size = UDim2.new(0.48, 0, 1, 0)
+InfBtn.Position = UDim2.new(0.52, 0, 0, 0)
+InfBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+InfBtn.Text = "CHẾ ĐỘ VÔ HẠN"
+InfBtn.Font = Enum.Font.GothamBold
+InfBtn.TextSize = 10
+Instance.new("UICorner", InfBtn).CornerRadius = UDim.new(0, 4)
+local InfStroke = Instance.new("UIStroke", InfBtn)
+InfStroke.Thickness = 2
+
+local function UpdateModeVisuals()
+    if _G.Mode == "Limit" then
+        LimitStroke.Color = Color3.fromRGB(0, 255, 255)
+        LimitBtn.TextColor3 = Color3.fromRGB(0, 255, 255)
+        InfStroke.Color = Color3.fromRGB(50, 50, 50)
+        InfBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    else
+        InfStroke.Color = Color3.fromRGB(255, 170, 0)
+        InfBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
+        LimitStroke.Color = Color3.fromRGB(50, 50, 50)
+        LimitBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
+    end
+    LimitLabel.Text = "Giới hạn nhận: " .. _G.QuestLimit .. " lần (Đã nhận: " .. _G.CurrentQuestCount .. ")"
+end
+UpdateModeVisuals()
+
+BindTap(LimitBtn, function() _G.Mode = "Limit" UpdateModeVisuals() end)
+BindTap(InfBtn, function() _G.Mode = "Inf" UpdateModeVisuals() end)
+
+-- ============================
+-- CÁC NÚT ĐIỀU KHIỂN AUTO
+-- ============================
 local RefreshBtn = Instance.new("TextButton", ContentFrame)
-RefreshBtn.Size = UDim2.new(0.9, 0, 0, 25)
+RefreshBtn.Size = UDim2.new(0.9, 0, 0, 22)
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-RefreshBtn.Text = "Làm Mới Danh Sách"
+RefreshBtn.Text = "Làm Mới Danh Sách NPC"
 RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 RefreshBtn.Font = Enum.Font.GothamBold
 RefreshBtn.TextSize = 11
 Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 4)
 
--- NÚT QUEST THƯỜNG
 local NormalDropBtn = Instance.new("TextButton", ContentFrame)
-NormalDropBtn.Size = UDim2.new(0.9, 0, 0, 25)
+NormalDropBtn.Size = UDim2.new(0.9, 0, 0, 22)
 NormalDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 NormalDropBtn.Text = "Quest Thường: None ▼"
 NormalDropBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
@@ -209,9 +274,8 @@ NormalToggle.Font = Enum.Font.GothamBold
 NormalToggle.TextSize = 11
 Instance.new("UICorner", NormalToggle).CornerRadius = UDim.new(0, 4)
 
--- NÚT QUEST DAILY
 local DailyDropBtn = Instance.new("TextButton", ContentFrame)
-DailyDropBtn.Size = UDim2.new(0.9, 0, 0, 25)
+DailyDropBtn.Size = UDim2.new(0.9, 0, 0, 22)
 DailyDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 DailyDropBtn.Text = "Quest Daily: Auto Nhận Tất Cả ▼"
 DailyDropBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
@@ -228,7 +292,6 @@ DailyToggle.Font = Enum.Font.GothamBold
 DailyToggle.TextSize = 11
 Instance.new("UICorner", DailyToggle).CornerRadius = UDim.new(0, 4)
 
--- NÚT DÀNH RIÊNG CHO SAM
 local SamToggle = Instance.new("TextButton", ContentFrame)
 SamToggle.Size = UDim2.new(0.9, 0, 0, 28)
 SamToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -241,7 +304,6 @@ local SamStroke = Instance.new("UIStroke", SamToggle)
 SamStroke.Color = Color3.fromRGB(255, 85, 255)
 SamStroke.Thickness = 1
 
--- HÀM TẠO SCROLLING FRAME
 local function CreateDropScroll(parentBtn)
     local Scroll = Instance.new("ScrollingFrame", ScreenGui)
     Scroll.Size = UDim2.new(0, 198, 0, 150)
@@ -261,40 +323,12 @@ local function CreateDropScroll(parentBtn)
     end)
     return Scroll
 end
-
 local NormalScroll = CreateDropScroll(NormalDropBtn)
 local DailyScroll = CreateDropScroll(DailyDropBtn)
-
--- ============================
--- 3. XỬ LÝ SỰ KIỆN MENU
--- ============================
-
-BindTap(TeleportBtn, function()
-    local targetName = ""
-    if _G.AutoSam then 
-        targetName = "Sam"
-    elseif _G.SelectedDaily ~= "" then 
-        targetName = _G.SelectedDaily
-    elseif _G.SelectedNormal ~= "" then 
-        targetName = _G.SelectedNormal
-    end
-
-    if targetName ~= "" and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj.Name == targetName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-                if obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
-                    player.Character.HumanoidRootPart.CFrame = obj.HumanoidRootPart.CFrame
-                    break
-                end
-            end
-        end
-    end
-end)
 
 BindTap(RefreshBtn, function()
     local tempN, tempD = {}, {}
     local listNormal, listDaily = {}, {}
-    
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Model") and obj.Parent then
             local pName = string.lower(obj.Parent.Name)
@@ -347,13 +381,11 @@ BindTap(NormalToggle, function()
     NormalToggle.BackgroundColor3 = _G.AutoNormal and Color3.fromRGB(255, 170, 0) or Color3.fromRGB(40, 40, 40)
     NormalToggle.Text = "Auto Thường " .. (_G.AutoNormal and "[ON]" or "[OFF]")
 end)
-
 BindTap(DailyToggle, function()
     _G.AutoDaily = not _G.AutoDaily
     DailyToggle.BackgroundColor3 = _G.AutoDaily and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(40, 40, 40)
     DailyToggle.Text = "Auto Daily " .. (_G.AutoDaily and "[ON]" or "[OFF]")
 end)
-
 BindTap(SamToggle, function()
     _G.AutoSam = not _G.AutoSam
     SamToggle.BackgroundColor3 = _G.AutoSam and Color3.fromRGB(255, 85, 255) or Color3.fromRGB(40, 40, 40)
@@ -361,7 +393,7 @@ BindTap(SamToggle, function()
 end)
 
 -- ============================
--- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG
+-- HÀM XỬ LÝ NHẬP NÚT & LOGIC GIỚI HẠN
 -- ============================
 local function HasActiveQuest()
     local questGui = player.PlayerGui:FindFirstChild("QuestGui")
@@ -384,33 +416,56 @@ local function PassiveClick(btn)
     pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
 end
 
+local function IncrementQuestLimit()
+    if _G.Mode == "Limit" then
+        _G.CurrentQuestCount = _G.CurrentQuestCount + 1
+        UpdateModeVisuals()
+
+        if _G.CurrentQuestCount >= _G.QuestLimit then
+            -- Tắt toàn bộ Auto khi đủ giới hạn
+            _G.AutoSam = false 
+            SamToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            SamToggle.Text = "Auto NPC Sam [OFF]"
+            
+            _G.AutoDaily = false
+            DailyToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            DailyToggle.Text = "Auto Daily [OFF]"
+            
+            _G.AutoNormal = false
+            NormalToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            NormalToggle.Text = "Auto Thường [OFF]"
+            
+            _G.CurrentQuestCount = 0 -- Trả lại 0 cho lần chạy sau
+            UpdateModeVisuals()
+        end
+    end
+end
+
+-- ============================
+-- VÒNG LẶP AUTO CHÍNH
+-- ============================
 task.spawn(function()
-    while task.wait(0.1) do -- Quét cực nhanh (0.1s) nhưng chỉ thực hiện nhấp khi đủ Delay
-        
+    while task.wait(0.1) do
         local questGui = player.PlayerGui:FindFirstChild("QuestGui")
         if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
         
-        -- Nếu tắt hết mọi Auto thì vòng lặp không xử lý gì
-        if not (_G.AutoNormal or _G.AutoDaily or _G.AutoSam) then
-            continue
-        end
+        if not (_G.AutoNormal or _G.AutoDaily or _G.AutoSam) then continue end
 
-        -- ==========================================
-        -- 1. TỰ ĐỘNG BẤM BẢNG THOẠI (BẢNG SẼ KHÔNG BỊ GIẤU ĐI NỮA)
-        -- ==========================================
+        -- 1. BẢNG THOẠI ĐANG MỞ
         if dialogue and dialogue.Visible then
             local opts = dialogue:FindFirstChild("Options")
-            if opts and CanAct() then -- Chỉ thực hiện khi đã chờ đủ Delay
+            if opts and CanAct() then 
                 local btnNext = opts:FindFirstChild("Next")
-                local btnOption = opts:FindFirstChild("Option")  -- Lựa chọn 1
-                local btnOption2 = opts:FindFirstChild("Option2") -- Lựa chọn 2
+                local btnOption = opts:FindFirstChild("Option")  
+                local btnOption2 = opts:FindFirstChild("Option2") 
                 local btnLeave = opts:FindFirstChild("Leave")
 
                 if _G.AutoSam then
                     if btnOption and btnOption.Visible then 
                         PassiveClick(btnOption)
                         RegisterAction()
+                        IncrementQuestLimit() -- Tăng biến đếm khi click Option thành công
                     elseif btnNext and btnNext.Visible then 
                         PassiveClick(btnNext)
                         RegisterAction()
@@ -419,21 +474,19 @@ task.spawn(function()
                     if btnNext and btnNext.Visible then 
                         PassiveClick(btnNext) RegisterAction()
                     elseif btnOption and btnOption.Visible then 
-                        PassiveClick(btnOption) RegisterAction()
+                        PassiveClick(btnOption) RegisterAction() IncrementQuestLimit()
                     elseif btnOption2 and btnOption2.Visible then 
-                        PassiveClick(btnOption2) RegisterAction()
+                        PassiveClick(btnOption2) RegisterAction() IncrementQuestLimit()
                     elseif btnLeave and btnLeave.Visible then 
                         PassiveClick(btnLeave) RegisterAction() 
                     end
                 end
             end
-            continue -- Nếu đang hiện bảng thoại thì dừng lại, không tiếp tục bấm NPC
+            continue 
         end
 
-        -- ==========================================
-        -- 2. NHẬN NPC TỪ XA
-        -- ==========================================
-        if not HasActiveQuest() and CanAct() then -- Chỉ click NPC khi đã qua thời gian Delay
+        -- 2. NHẬN NPC TỪ XA & TỰ ĐỘNG TELEPORT (SAM)
+        if not HasActiveQuest() and CanAct() then 
             local hasClickedNPC = false
 
             if _G.AutoSam then
@@ -443,6 +496,11 @@ task.spawn(function()
                         if string.find(pName, "quest") then
                             local root = obj:FindFirstChild("HumanoidRootPart")
                             if root then
+                                -- TỰ ĐỘNG TELEPORT ĐẾN SAM
+                                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                                    player.Character.HumanoidRootPart.CFrame = root.CFrame
+                                end
+
                                 local cd = root:FindFirstChildOfClass("ClickDetector")
                                 if cd and fireclickdetector then 
                                     fireclickdetector(cd, 0) 
