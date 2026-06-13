@@ -1,5 +1,5 @@
 -- =========================================================================
--- [ULTIMATE MASTER] YUIHUB V23 - FIXED INTRO, SMART SWEEP, ANTI-AFK
+-- [ULTIMATE MASTER] YUIHUB V24 - FIX INTRO, CLEAN TABS, FAST ATTACK, NO SKYBASE
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -17,34 +17,42 @@ local LocalPlayer = Players.LocalPlayer
 local TargetGui = (gethui and pcall(gethui) and gethui()) or CoreGui
 if not pcall(function() local _ = TargetGui.Name end) then TargetGui = LocalPlayer:WaitForChild("PlayerGui") end
 
--- Clean old UI to prevent overlapping
+-- Clean old GUI
 for _, gui in pairs(TargetGui:GetChildren()) do 
     if gui.Name == "YuiHub" or gui.Name == "YuiIntro" then gui:Destroy() end 
 end
 
 -- Anti AFK Core
 LocalPlayer.Idled:Connect(function()
-    if _G.Yui and _G.Yui.AntiAFK then VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new()) end
+    if _G.Yui and _G.Yui.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
 end)
 
 -- Global Settings
 _G.Yui = {
-    AntiAFK = true, MoveMethod = "Teleport", CollectMethod = "Teleport (Continuous)",
-    AutoFarm = false, SelectedMobs = {}, SelectedWeapon = "None", FastAttack = false, AutoClick = false,
+    AntiAFK = true, MoveMethod = "Teleport", CollectMethod = "Teleport (Continuous)", MoveSpeed = 300, HoverOnKill = true,
+    AutoFarm = false, SelectedMobs = {}, SelectedWeapon = "None", FastAttack = false,
     AttackDist = 5, AttackPos = "Above", AutoSpawn = false,
     AutoSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false},
     HoldSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false}, HoldTime = 1,
     AutoHaki = {E=false, R=false, T=false},
-    SelectedNormalQuest = "", AutoNormalQuest = false, SelectedDailyQuest = "", AutoDailyQuest = false, AutoAcceptQuest = false,
+    SelectedNormalQuest = "", AutoNormalQuest = false,
+    SelectedDailyQuest = "", AutoDailyQuest = false, AutoAcceptQuest = false,
     CollectChest = false, CollectBarrel = false, CollectSpeed = 0.2, AutoFruit = false, CamUnderground = false,
     AutoJuice = false, JuiceDelay = 5, AutoDrink = false, DrinkDelay = 1, AutoEatApple = false, AppleDelay = 3, 
     WalkSpeed = 16, EnableWS = false, JumpPower = 50, EnableJP = false, 
-    Fly = false, FlySpeed = 50, Noclip = false, WalkOnWater = false, InfJump = false, AutoSafe = false, SafeHealth = 30,
-    AutoGetRod = false, AutoFish = false, AutoPin = false, TargetPlayer = "None", AutoHunt = false, HuntDist = 5, ESPPlayer = false, Spectate = false,
-    AutoRejoin = false, AutoExecute = false, ExecuteScript = "", AutoLoadConfig = false, AutoLoadName = "", ConfigName = "Default", AutoHop = false, HopDelay = 3, ThemeColor = "Pink"
+    Fly = false, FlySpeed = 50, Noclip = false, WalkOnWater = false, InfJump = false,
+    AutoSafe = false, SafeHealth = 30,
+    AutoGetRod = false, AutoFish = false, AutoPin = false,
+    TargetPlayer = "None", AutoHunt = false, HuntDist = 5, ESPPlayer = false, Spectate = false,
+    AutoRejoin = false, AutoExecute = false, ExecuteScript = "", 
+    AutoLoadConfig = false, AutoLoadName = "", ConfigName = "Default",
+    AutoHop = false, HopDelay = 3, ThemeColor = "Pink"
 }
 
--- Config System Load
+-- Config System
 local ConfigFolder = "YuiHub_Configs"
 if isfolder and not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 local CoreFile = ConfigFolder .. "/CoreSettings.json"
@@ -71,40 +79,57 @@ if isfile and isfile(CoreFile) then
     end
 end
 
+-- Variables
 local CurrentTarget = nil
 local AllDropdowns = {}
 local TimedBlacklist = {}
 local ESPTracers = {}
 local ActiveTween = nil
-_G.PinnedCFrame = nil _G.SavedLocations = {} _G.SavedCount = 0 _G.SelectedSavedCFrame = nil
+_G.PinnedCFrame = nil
+_G.SavedLocations = {}
+_G.SavedCount = 0
+_G.SelectedSavedCFrame = nil
 local HakiStates = {E = false, R = false}
 
 LocalPlayer.CharacterAdded:Connect(function() HakiStates.E = false HakiStates.R = false end)
 
+-- Movement Handler (Teleport or Fly)
 local function MoveTo(targetCFrame, speedOverride)
-    local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart") if not root then return end
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
     if _G.Yui.MoveMethod == "Fly (Tween)" or speedOverride then
-        local spd = speedOverride or _G.Yui.FlySpeed
+        local spd = speedOverride or _G.Yui.MoveSpeed
         local dist = (root.Position - targetCFrame.Position).Magnitude
         local info = TweenInfo.new(dist / spd, Enum.EasingStyle.Linear)
         if ActiveTween then ActiveTween:Cancel() end
-        ActiveTween = TweenService:Create(root, info, {CFrame = targetCFrame}) ActiveTween:Play() ActiveTween.Completed:Wait()
+        ActiveTween = TweenService:Create(root, info, {CFrame = targetCFrame})
+        ActiveTween:Play()
+        ActiveTween.Completed:Wait()
     else
-        root.CFrame = targetCFrame root.Velocity = Vector3.zero
+        root.CFrame = targetCFrame
+        root.Velocity = Vector3.zero
     end
 end
 
 -- Hover Mechanics
-local HoverBV = Instance.new("BodyVelocity") HoverBV.Name = "YuiHover" HoverBV.MaxForce = Vector3.zero HoverBV.Velocity = Vector3.zero
+local HoverBV = Instance.new("BodyVelocity")
+HoverBV.Name = "YuiHover" HoverBV.MaxForce = Vector3.zero HoverBV.Velocity = Vector3.zero
 RunService.Heartbeat:Connect(function()
     local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if root then
         if HoverBV.Parent ~= root then HoverBV.Parent = root end
-        if _G.Yui.AutoFarm and not CurrentTarget and _G.Yui.HoverOnKill then HoverBV.MaxForce = Vector3.new(1e5, 1e5, 1e5) HoverBV.Velocity = Vector3.zero else HoverBV.MaxForce = Vector3.zero end
+        if _G.Yui.AutoFarm and not CurrentTarget and _G.Yui.HoverOnKill then
+            HoverBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            HoverBV.Velocity = Vector3.zero
+        else
+            HoverBV.MaxForce = Vector3.zero
+        end
     end
 end)
 
--- Smart Touch (Fix Scroll Glitch)
+-- UI Interactions
 local function BindTap(element, callback)
     local touchStart, startPos = 0, Vector2.new(0,0)
     element.InputBegan:Connect(function(input)
@@ -128,28 +153,98 @@ local function MakeDraggable(dragArea, targetFrame)
             input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
         end
     end)
-    dragArea.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+    dragArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
-            local delta = input.Position - dragStart targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            local delta = input.Position - dragStart
+            targetFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 end
 
--- Theme Setup
+-- Themes
 local ThemeColors = {
     Pink = Color3.fromRGB(255, 85, 127), Red = Color3.fromRGB(255, 60, 60),
     Blue = Color3.fromRGB(80, 150, 255), Green = Color3.fromRGB(80, 255, 120),
     Purple = Color3.fromRGB(150, 80, 255), Orange = Color3.fromRGB(255, 170, 50)
 }
+
 local Theme = {
     MainBg = Color3.fromRGB(15, 15, 18), HeaderBg = Color3.fromRGB(22, 22, 25),
     BoxBg = Color3.fromRGB(20, 20, 23), Accent = ThemeColors[_G.Yui.ThemeColor] or ThemeColors.Pink,
-    TextTitle = Color3.fromRGB(255, 255, 255), TextSub = Color3.fromRGB(140, 140, 140), Stroke = Color3.fromRGB(35, 35, 40), SelectedGreen = Color3.fromRGB(50, 255, 100)
+    TextTitle = Color3.fromRGB(255, 255, 255), TextSub = Color3.fromRGB(140, 140, 140),
+    Stroke = Color3.fromRGB(35, 35, 40), SelectedGreen = Color3.fromRGB(50, 255, 100)
 }
 local DynamicUIElements = {}
 
-local ScreenGui = Instance.new("ScreenGui") ScreenGui.Name = "YuiHub" ScreenGui.Parent = TargetGui ScreenGui.ResetOnSpawn = false
+-- Create Base ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "YuiHub" ScreenGui.Parent = TargetGui ScreenGui.ResetOnSpawn = false
+
+-- =========================================================================
+-- INTRO ANIMATION (SAFE WRAPPED)
+-- =========================================================================
+local IntroGui = Instance.new("ScreenGui", TargetGui)
+IntroGui.Name = "YuiIntro" IntroGui.ResetOnSpawn = false
+
+local NotifFrame = Instance.new("Frame", IntroGui)
+NotifFrame.Size = UDim2.new(0, 280, 0, 50) NotifFrame.Position = UDim2.new(1, 20, 1, -80) NotifFrame.BackgroundColor3 = Theme.HeaderBg
+Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 8)
+local NotifStroke = Instance.new("UIStroke", NotifFrame) NotifStroke.Color = Theme.Accent table.insert(DynamicUIElements, {Obj = NotifStroke, Prop = "Color"})
+
+local Spinner = Instance.new("ImageLabel", NotifFrame)
+Spinner.Size = UDim2.new(0, 30, 0, 30) Spinner.Position = UDim2.new(0, 10, 0, 10) Spinner.BackgroundTransparency = 1 Spinner.Image = "rbxassetid://14457317772"
+Spinner.ImageColor3 = Theme.Accent table.insert(DynamicUIElements, {Obj = Spinner, Prop = "ImageColor3"})
+
+local NotifText = Instance.new("TextLabel", NotifFrame)
+NotifText.Size = UDim2.new(1, -55, 1, 0) NotifText.Position = UDim2.new(0, 50, 0, 0) NotifText.BackgroundTransparency = 1 NotifText.Text = "Thanks for using YuiHub.\nPlease wait, loading..."
+NotifText.TextColor3 = Theme.TextTitle NotifText.Font = Enum.Font.GothamBold NotifText.TextSize = 11 NotifText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Intro Setup
+local Logo = Instance.new("ImageLabel", IntroGui)
+Logo.Image = "rbxassetid://14457317772" Logo.AnchorPoint = Vector2.new(0.5, 0.5) Logo.Size = UDim2.new(0, 80, 0, 80)
+Logo.Position = UDim2.new(0.5, 0, -0.2, 0) Logo.BackgroundTransparency = 1 Logo.ImageColor3 = Theme.Accent
+
+local function ShowMainGui()
+    if IntroGui then IntroGui:Destroy() end
+    if ScreenGui and ScreenGui:FindFirstChild("YuiMainFrame") then 
+        ScreenGui.YuiMainFrame.Visible = true 
+    end
+end
+
+-- Failsafe: Forces menu to open if Intro hangs for more than 4 seconds
+task.delay(4, ShowMainGui)
+
+task.spawn(function()
+    TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, -300, 1, -80)}):Play()
+    local rotTween = TweenService:Create(Spinner, TweenInfo.new(1, Enum.EasingStyle.Linear), {Rotation = 360})
+    rotTween.RepeatCount = -1 rotTween:Play()
+    task.wait(1.5)
+    
+    TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, 20, 1, -80)}):Play()
+    TweenService:Create(Logo, TweenInfo.new(0.8, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+    TweenService:Create(Logo, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {Rotation = 360}):Play()
+    task.wait(1)
+    
+    local beamX = Instance.new("Frame", IntroGui) beamX.Size = UDim2.new(0,0,0,2) beamX.Position = UDim2.new(0.5,0,0.5,0) beamX.AnchorPoint = Vector2.new(0.5,0.5) beamX.BackgroundColor3 = Theme.Accent beamX.BorderSizePixel = 0
+    local beamY = Instance.new("Frame", IntroGui) beamY.Size = UDim2.new(0,2,0,0) beamY.Position = UDim2.new(0.5,0,0.5,0) beamY.AnchorPoint = Vector2.new(0.5,0.5) beamY.BackgroundColor3 = Theme.Accent beamY.BorderSizePixel = 0
+    
+    TweenService:Create(beamX, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = UDim2.new(1.5,0,0,2)}):Play()
+    TweenService:Create(beamY, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Size = UDim2.new(0,2,1.5,0)}):Play()
+    task.wait(0.2)
+    beamX:Destroy() beamY:Destroy()
+    
+    local exp = TweenService:Create(Logo, TweenInfo.new(0.4, Enum.EasingStyle.Sine), {Size = UDim2.new(0, 600, 0, 400), ImageTransparency = 1})
+    exp:Play() exp.Completed:Wait()
+    
+    ShowMainGui()
+end)
+
+-- =========================================================================
+-- MAIN GUI CONSTRUCTION
+-- =========================================================================
 local ESPFolder = Instance.new("Folder") ESPFolder.Name = "YuiESPFolder" ESPFolder.Parent = CoreGui
 
 local OpenIconBtn = Instance.new("ImageButton", ScreenGui) OpenIconBtn.Name = "OpenIconBtn"
@@ -166,10 +261,16 @@ MakeDraggable(MainFrame, MainFrame)
 
 BindTap(OpenIconBtn, function() MainFrame.Visible = true OpenIconBtn.Visible = false end)
 
-local Header = Instance.new("Frame", MainFrame) Header.Size = UDim2.new(1, -20, 0, 60) Header.Position = UDim2.new(0, 10, 0, 10) Header.BackgroundColor3 = Theme.HeaderBg Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8) Instance.new("UIStroke", Header).Color = Theme.Stroke
-local BlueLine = Instance.new("Frame", Header) BlueLine.Size = UDim2.new(0, 3, 0, 30) BlueLine.Position = UDim2.new(0, 15, 0, 15) BlueLine.BackgroundColor3 = Theme.Accent Instance.new("UICorner", BlueLine).CornerRadius = UDim.new(1, 0) table.insert(DynamicUIElements, {Obj = BlueLine, Prop = "BackgroundColor3"})
+local Header = Instance.new("Frame", MainFrame)
+Header.Size = UDim2.new(1, -20, 0, 60) Header.Position = UDim2.new(0, 10, 0, 10) Header.BackgroundColor3 = Theme.HeaderBg
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8) Instance.new("UIStroke", Header).Color = Theme.Stroke
+
+local BlueLine = Instance.new("Frame", Header) BlueLine.Size = UDim2.new(0, 3, 0, 30) BlueLine.Position = UDim2.new(0, 15, 0, 15) BlueLine.BackgroundColor3 = Theme.Accent Instance.new("UICorner", BlueLine).CornerRadius = UDim.new(1, 0)
+table.insert(DynamicUIElements, {Obj = BlueLine, Prop = "BackgroundColor3"})
+
 local WelcomeText = Instance.new("TextLabel", Header) WelcomeText.Size = UDim2.new(0, 150, 0, 15) WelcomeText.Position = UDim2.new(0, 25, 0, 15) WelcomeText.BackgroundTransparency = 1 WelcomeText.Text = "Ultimate Script Hub" WelcomeText.TextColor3 = Theme.TextSub WelcomeText.Font = Enum.Font.Gotham WelcomeText.TextSize = 10 WelcomeText.TextXAlignment = Enum.TextXAlignment.Left
-local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V23" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
+local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V24" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left
+table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
 
 local MinBtn = Instance.new("TextButton", Header) MinBtn.Size = UDim2.new(0, 30, 0, 30) MinBtn.Position = UDim2.new(1, -65, 0, 15) MinBtn.BackgroundTransparency = 1 MinBtn.Text = "—" MinBtn.TextColor3 = Theme.TextTitle MinBtn.Font = Enum.Font.GothamBold MinBtn.TextSize = 14
 BindTap(MinBtn, function() MainFrame.Visible = false OpenIconBtn.Visible = true for _, dd in ipairs(AllDropdowns) do dd.Visible = false end end)
@@ -177,13 +278,18 @@ BindTap(MinBtn, function() MainFrame.Visible = false OpenIconBtn.Visible = true 
 local CloseBtn = Instance.new("TextButton", Header) CloseBtn.Size = UDim2.new(0, 30, 0, 30) CloseBtn.Position = UDim2.new(1, -35, 0, 15) CloseBtn.BackgroundTransparency = 1 CloseBtn.Text = "✕" CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80) CloseBtn.Font = Enum.Font.GothamBold CloseBtn.TextSize = 14
 BindTap(CloseBtn, function() ScreenGui:Destroy() ESPFolder:Destroy() for _, line in pairs(ESPTracers) do if line then line:Remove() end end end)
 
-local Sidebar = Instance.new("ScrollingFrame", MainFrame) Sidebar.Size = UDim2.new(0, 130, 1, -85) Sidebar.Position = UDim2.new(0, 10, 0, 75) Sidebar.BackgroundTransparency = 1 Sidebar.ScrollBarThickness = 0 local SidebarLayout = Instance.new("UIListLayout", Sidebar) SidebarLayout.Padding = UDim.new(0, 5)
-local ContentArea = Instance.new("Frame", MainFrame) ContentArea.Size = UDim2.new(1, -155, 1, -85) ContentArea.Position = UDim2.new(0, 145, 0, 75) ContentArea.BackgroundTransparency = 1
+local Sidebar = Instance.new("ScrollingFrame", MainFrame)
+Sidebar.Size = UDim2.new(0, 130, 1, -85) Sidebar.Position = UDim2.new(0, 10, 0, 75) Sidebar.BackgroundTransparency = 1 Sidebar.ScrollBarThickness = 0
+local SidebarLayout = Instance.new("UIListLayout", Sidebar) SidebarLayout.Padding = UDim.new(0, 5)
+
+local ContentArea = Instance.new("Frame", MainFrame)
+ContentArea.Size = UDim2.new(1, -155, 1, -85) ContentArea.Position = UDim2.new(0, 145, 0, 75) ContentArea.BackgroundTransparency = 1
 
 local Tabs = {}
 local function CreateTab(name, isActive)
     local TabBtn = Instance.new("TextButton", Sidebar) TabBtn.Size = UDim2.new(1, 0, 0, 30) TabBtn.BackgroundColor3 = isActive and Theme.BoxBg or Theme.MainBg TabBtn.Text = "  " .. name TabBtn.TextColor3 = isActive and Theme.TextTitle or Theme.TextSub TabBtn.Font = Enum.Font.GothamBold TabBtn.TextSize = 11 TabBtn.TextXAlignment = Enum.TextXAlignment.Left Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
-    local ActiveLine = Instance.new("Frame", TabBtn) ActiveLine.Size = UDim2.new(0, 3, 0.6, 0) ActiveLine.Position = UDim2.new(0, 0, 0.2, 0) ActiveLine.BackgroundColor3 = Theme.Accent ActiveLine.Visible = isActive Instance.new("UICorner", ActiveLine).CornerRadius = UDim.new(1, 0) table.insert(DynamicUIElements, {Obj = ActiveLine, Prop = "BackgroundColor3"})
+    local ActiveLine = Instance.new("Frame", TabBtn) ActiveLine.Size = UDim2.new(0, 3, 0.6, 0) ActiveLine.Position = UDim2.new(0, 0, 0.2, 0) ActiveLine.BackgroundColor3 = Theme.Accent ActiveLine.Visible = isActive Instance.new("UICorner", ActiveLine).CornerRadius = UDim.new(1, 0)
+    table.insert(DynamicUIElements, {Obj = ActiveLine, Prop = "BackgroundColor3"})
 
     local Page = Instance.new("Frame", ContentArea) Page.Size = UDim2.new(1, 0, 1, 0) Page.BackgroundTransparency = 1 Page.Visible = isActive
     local LeftCol = Instance.new("ScrollingFrame", Page) LeftCol.Size = UDim2.new(0.49, 0, 1, 0) LeftCol.BackgroundTransparency = 1 LeftCol.ScrollBarThickness = 2 local LeftLayout = Instance.new("UIListLayout", LeftCol) LeftLayout.Padding = UDim.new(0, 8)
@@ -202,7 +308,6 @@ local function CreateTab(name, isActive)
     return LeftCol, RightCol
 end
 
--- UI Components functions
 local function CreateSection(titleText, parentCol)
     local Box = Instance.new("Frame", parentCol) Box.BackgroundColor3 = Theme.BoxBg Box.Size = UDim2.new(1, 0, 0, 50) Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 6) Instance.new("UIStroke", Box).Color = Theme.Stroke
     local Title = Instance.new("TextLabel", Box) Title.Size = UDim2.new(1, -20, 0, 20) Title.Position = UDim2.new(0, 10, 0, 5) Title.BackgroundTransparency = 1 Title.Text = titleText Title.TextColor3 = Theme.Accent Title.Font = Enum.Font.GothamBold Title.TextSize = 10 Title.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = Title, Prop = "TextColor3"})
@@ -219,9 +324,12 @@ local function CreateToggle(labelText, default, parentBox, callback)
 
     local isOn = default
     BindTap(Bg, function()
-        isOn = not isOn TweenService:Create(Knob, TweenInfo.new(0.2), {Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play() TweenService:Create(Bg, TweenInfo.new(0.2), {BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg}):Play() callback(isOn)
+        isOn = not isOn TweenService:Create(Knob, TweenInfo.new(0.2), {Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}):Play()
+        TweenService:Create(Bg, TweenInfo.new(0.2), {BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg}):Play() callback(isOn)
     end)
-    return function(state) isOn = state Knob.Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6) Bg.BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg callback(isOn) end
+    return function(state)
+        isOn = state Knob.Position = isOn and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6) Bg.BackgroundColor3 = isOn and Theme.Accent or Theme.MainBg callback(isOn)
+    end
 end
 
 local function CreateSlider(labelText, min, max, default, parentBox, callback, allowFloat)
@@ -234,7 +342,8 @@ local function CreateSlider(labelText, min, max, default, parentBox, callback, a
 
     local drag = false
     local function update(input)
-        local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1) Fill.Size = UDim2.new(rel, 0, 1, 0) 
+        local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+        Fill.Size = UDim2.new(rel, 0, 1, 0) 
         local val = min + (max - min) * rel if not allowFloat then val = math.floor(val) else val = math.floor(val * 10) / 10 end
         ValLabel.Text = tostring(val) callback(val)
     end
@@ -271,7 +380,8 @@ local function CreateDropdown(labelStr, defaultStr, parentBox, callback)
 
     local SearchBox = Instance.new("TextBox", FloatFrame) SearchBox.Size = UDim2.new(1, -10, 0, 25) SearchBox.BackgroundColor3 = Theme.MainBg SearchBox.TextColor3 = Theme.TextTitle SearchBox.PlaceholderText = "Search..." SearchBox.Text = "" SearchBox.Font = Enum.Font.Gotham SearchBox.TextSize = 10 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0,4)
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local q = string.lower(SearchBox.Text) for _, v in pairs(FloatFrame:GetChildren()) do if v:IsA("TextButton") then if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end end end
+        local q = string.lower(SearchBox.Text)
+        for _, v in pairs(FloatFrame:GetChildren()) do if v:IsA("TextButton") then if q == "" or string.find(string.lower(v.Text), q) then v.Visible = true else v.Visible = false end end end
     end)
 
     local function populate(itemList)
@@ -309,7 +419,8 @@ local function CreateMultiDropdown(labelStr, parentBox, globalList)
         local h = 30
         for _, item in ipairs(itemList) do
             local isSelected = globalList[item]
-            local b = Instance.new("TextButton", FloatFrame) b.Size = UDim2.new(1, 0, 0, 25) b.BackgroundColor3 = Theme.HeaderBg b.TextColor3 = isSelected and Theme.SelectedGreen or Theme.TextTitle 
+            local b = Instance.new("TextButton", FloatFrame) b.Size = UDim2.new(1, 0, 0, 25) b.BackgroundColor3 = Theme.HeaderBg 
+            b.TextColor3 = isSelected and Theme.SelectedGreen or Theme.TextTitle 
             b.Text = "  " .. item b.Font = Enum.Font.GothamBold b.TextSize = 9 b.TextXAlignment = Enum.TextXAlignment.Left b.ZIndex = 1000
             h = h + 25 BindTap(b, function() globalList[item] = not globalList[item] b.TextColor3 = globalList[item] and Theme.SelectedGreen or Theme.TextTitle end)
         end
@@ -334,10 +445,10 @@ end
 -- ============================
 local MainL, MainR = CreateTab("Main Farm", true)
 local QuestL, QuestR = CreateTab("Quests", false)
-local SkillL, SkillR = CreateTab("Skills & Haki", false)
+local SkillL, SkillR = CreateTab("Skills", false)
 local ResL, ResR = CreateTab("Resources", false)
 local PlayerL, PlayerR = CreateTab("Player", false)
-local BountyL, BountyR = CreateTab("Bounty & PvP", false)
+local BountyL, BountyR = CreateTab("Bounty", false)
 local FishL, FishR = CreateTab("Fish & Teleport", false)
 local ServerL, ServerR = CreateTab("Server & FPS", false)
 local SetL, SetR = CreateTab("Settings", false)
@@ -382,7 +493,6 @@ CreateButton("Refresh Weapons", AtkBox, function()
     for _, v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("Tool") then table.insert(t, v.Name) end end
     UpdateWepDrop(t)
 end)
-Setters.AutoClick = CreateToggle("Auto Mouse Click", false, AtkBox, function(v) _G.Yui.AutoClick = v end)
 Setters.FastAttack = CreateToggle("Auto Fast Attack (Silent)", false, AtkBox, function(v) _G.Yui.FastAttack = v end)
 
 local ConfigBox = CreateSection("Position & Safe", MainR)
@@ -598,7 +708,7 @@ end)
 local SysBox = CreateSection("System Core", SetL)
 Setters.AntiAFK = CreateToggle("Anti AFK (No Kick)", _G.Yui.AntiAFK, SysBox, function(v) _G.Yui.AntiAFK = v end)
 Setters.AutoRejoin = CreateToggle("Auto Rejoin", _G.Yui.AutoRejoin, SysBox, function(v) _G.Yui.AutoRejoin = v SaveCoreSettings() end)
-Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
+Setters.AutoExecute = CreateToggle("Auto Execute on Rejoin/Hop", _G.Yui.AutoExecute, SysBox, function(v) _G.Yui.AutoExecute = v SaveCoreSettings() end)
 CreateTextBox("Paste Loadstring URL Here", SysBox, _G.Yui.ExecuteScript, function(text) _G.Yui.ExecuteScript = text SaveCoreSettings() end)
 CreateButton("Reset All Toggles", SysBox, function() for _, func in pairs(Setters) do pcall(function() func(false) end) end end)
 
@@ -630,7 +740,6 @@ end)
 CreateButton("Save / Overwrite Selected", ConfigBox2, function()
     if writefile and HttpService and _G.Yui.ConfigName ~= "" then writefile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json", HttpService:JSONEncode(_G.Yui)) UpdateConfigDrop(GetConfigList()) end
 end)
-
 CreateButton("Load Selected Config", ConfigBox2, function()
     if readfile and isfile and isfile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json") then
         local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. _G.Yui.ConfigName .. ".json"))
@@ -660,39 +769,6 @@ end
 -- [MASTER THREADS] 
 -- =========================================================================
 
--- Intro Activation Sequence
-task.spawn(function()
-    TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, -300, 1, -80)}):Play()
-    local rotTween = TweenService:Create(Spinner, TweenInfo.new(1, Enum.EasingStyle.Linear), {Rotation = 360}) rotTween.RepeatCount = -1 rotTween:Play()
-    task.wait(2.5)
-    TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, 20, 1, -80)}):Play()
-    task.wait(0.5)
-    
-    local Logo = Instance.new("ImageLabel", IntroGui) Logo.Image = "rbxassetid://14457317772" Logo.AnchorPoint = Vector2.new(0.5, 0.5) Logo.Size = UDim2.new(0, 80, 0, 80) Logo.Position = UDim2.new(0.5, 0, -0.2, 0) Logo.BackgroundTransparency = 1 Logo.ImageColor3 = Theme.Accent
-    TweenService:Create(Logo, TweenInfo.new(1, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
-    TweenService:Create(Logo, TweenInfo.new(1.5, Enum.EasingStyle.Linear), {Rotation = 360}):Play()
-    task.wait(1.2)
-    
-    local beamX = Instance.new("Frame", IntroGui) beamX.Size = UDim2.new(0,0,0,2) beamX.Position = UDim2.new(0.5,0,0.5,0) beamX.AnchorPoint = Vector2.new(0.5,0.5) beamX.BackgroundColor3 = Theme.Accent beamX.BorderSizePixel = 0
-    local beamY = Instance.new("Frame", IntroGui) beamY.Size = UDim2.new(0,2,0,0) beamY.Position = UDim2.new(0.5,0,0.5,0) beamY.AnchorPoint = Vector2.new(0.5,0.5) beamY.BackgroundColor3 = Theme.Accent beamY.BorderSizePixel = 0
-    TweenService:Create(beamX, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {Size = UDim2.new(1.5,0,0,2)}):Play() TweenService:Create(beamY, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {Size = UDim2.new(0,2,1.5,0)}):Play()
-    task.wait(0.3) beamX:Destroy() beamY:Destroy()
-    
-    local exp = TweenService:Create(Logo, TweenInfo.new(0.4, Enum.EasingStyle.Sine), {Size = UDim2.new(0, 600, 0, 400), ImageTransparency = 1}) exp:Play() task.wait(0.4)
-    
-    IntroGui:Destroy()
-    MainFrame.Visible = true
-    
-    -- Auto Load sau Intro
-    if _G.Yui.AutoLoadConfig and _G.Yui.AutoLoadName ~= "" and isfile and isfile(ConfigFolder .. "/" .. _G.Yui.AutoLoadName .. ".json") then
-        local data = HttpService:JSONDecode(readfile(ConfigFolder .. "/" .. _G.Yui.AutoLoadName .. ".json"))
-        if data then 
-            for k, v in pairs(data) do _G.Yui[k] = v if Setters[k] then pcall(function() Setters[k](v) end) end end 
-            if data.ThemeColor then UpdateThemeColor(data.ThemeColor) SetThemeDrop(data.ThemeColor) end
-        end
-    end
-end)
-
 UserInputService.JumpRequest:Connect(function()
     if _G.Yui.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
@@ -701,7 +777,7 @@ RunService.Stepped:Connect(function()
     if _G.Yui.Noclip and LocalPlayer.Character then for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end end
 end)
 
--- Walk On Water (Raycast Terrain Water check)
+-- Walk On Water
 local WOWPad = Instance.new("Part") WOWPad.Size = Vector3.new(5, 1, 5) WOWPad.Transparency = 1 WOWPad.Anchored = true WOWPad.CanCollide = false WOWPad.Parent = Workspace
 RunService.Heartbeat:Connect(function()
     if _G.Yui.WalkOnWater and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -1009,7 +1085,9 @@ task.spawn(function()
                     VirtualUser:CaptureController() VirtualUser:ClickButton1(Vector2.new(0, 0))
 
                     local allNPCs = {}
-                    for _, obj in pairs(Workspace:GetDescendants()) do if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(obj) and obj.Name ~= "Fisherman" then table.insert(allNPCs, obj) end end
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj:FindFirstChild("HumanoidRootPart") and not Players:GetPlayerFromCharacter(obj) and obj.Name ~= "Fisherman" then table.insert(allNPCs, obj) end
+                    end
                     for _, npc in ipairs(allNPCs) do
                         local stillHavePackage = char:FindFirstChild("Package") or (backpack and backpack:FindFirstChild("Package"))
                         if not stillHavePackage then break end
@@ -1037,7 +1115,8 @@ local CoreGuiS = game:GetService("CoreGui")
 if CoreGuiS:FindFirstChild("RobloxPromptGui") then
     CoreGuiS.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
         if _G.Yui.AutoRejoin and child.Name == "ErrorPrompt" then
-            task.wait(2) local ts = game:GetService("TeleportService")
+            task.wait(2)
+            local ts = game:GetService("TeleportService")
             if _G.Yui.AutoExecute and queue_on_teleport and _G.Yui.ExecuteScript ~= "" then queue_on_teleport([[loadstring(game:HttpGet("]].._G.Yui.ExecuteScript..[["))()]]) end
             ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
         end
