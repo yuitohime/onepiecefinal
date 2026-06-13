@@ -1,297 +1,303 @@
 -- =========================================================================
--- [MINI TESTER V7] ZERO SPAM, FIX SAM ROBUX, 100% ACCURATE CLICK
+-- AUTO QUEST (TÁCH THƯỜNG & DAILY) - GIỮ NGUYÊN LÕI HOẠT ĐỘNG TỐT CỦA BẠN
 -- =========================================================================
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = (gethui and pcall(gethui) and gethui()) or game:GetService("CoreGui")
+local player = Players.LocalPlayer
 
-local LocalPlayer = Players.LocalPlayer
-local TargetGui = (gethui and pcall(gethui) and gethui()) or CoreGui
-if not pcall(function() local _ = TargetGui.Name end) then TargetGui = LocalPlayer:WaitForChild("PlayerGui") end
+if not pcall(function() local _ = CoreGui.Name end) then CoreGui = player:WaitForChild("PlayerGui") end
+for _, gui in pairs(CoreGui:GetChildren()) do if gui.Name == "AutoQuest_Mini" then gui:Destroy() end end
 
--- Xóa UI cũ
-for _, v in pairs(TargetGui:GetChildren()) do
-    if v.Name == "YuiQuestTester" then v:Destroy() end
+-- Biến Global Tách Biệt
+_G.AutoNormal = false
+_G.AutoDaily = false
+_G.SelectedNormal = ""
+_G.SelectedDaily = ""
+
+-- ============================
+-- 1. HÀM CẢM ỨNG CHUẨN MOBILE (Sử dụng Activated như bạn đưa)
+-- ============================
+local function BindTap(element, callback)
+    local debounce = false
+    element.Activated:Connect(function()
+        if not debounce then
+            debounce = true
+            callback()
+            task.wait(0.1)
+            debounce = false
+        end
+    end)
 end
 
 -- ============================
--- GLOBAL VARIABLES
+-- 2. TẠO MENU MINI TÁCH BIỆT (GIỮ NGUYÊN FIX KÉO THẢ)
 -- ============================
-local AutoSam = false
-local SamAmount = "x1"
-local AutoNormal = false
-local TargetNormal = ""
-local AutoDaily = false
-local TargetDaily = ""
-
-local ListNormal = {}
-local ListDaily = {}
-
-local function MoveTo(targetCFrame)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if root then
-        root.CFrame = targetCFrame
-        root.Velocity = Vector3.zero
-    end
-end
-
--- ============================
--- TẠO UI KÉO THẢ & DANH SÁCH
--- ============================
-local ScreenGui = Instance.new("ScreenGui", TargetGui)
-ScreenGui.Name = "YuiQuestTester"
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoQuest_Mini"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 250, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -125, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.Size = UDim2.new(0, 230, 0, 240) -- Nới rộng để chứa đủ 2 list
+MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.Active = true -- Bắt buộc cho mobile
 MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(80, 150, 255)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 
+-- Thanh Header (Chỉ kéo thả được khi nắm vào đây)
 local Header = Instance.new("Frame", MainFrame)
-Header.Size = UDim2.new(1, 0, 0, 35)
-Header.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
-local Title = Instance.new("TextLabel", Header)
-Title.Size = UDim2.new(1, 0, 1, 0) Title.BackgroundTransparency = 1
-Title.Text = "🛠️ QUEST & SAM V7" Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold Title.TextSize = 12
+Header.Size = UDim2.new(1, 0, 0, 30)
+Header.BackgroundTransparency = 1
+Header.Active = true
 
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "AUTO QUEST (THƯỜNG & DAILY)"
+Title.TextColor3 = Color3.fromRGB(0, 170, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 11
+
+-- Kéo thả mượt mà
 local dragToggle, dragInput, dragStart, startPos
 Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragToggle = true dragStart = input.Position startPos = MainFrame.Position
-        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragToggle = false end end)
+        dragToggle = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+        end)
     end
 end)
 Header.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragToggle then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        local Delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + Delta.X, startPos.Y.Scale, startPos.Y.Offset + Delta.Y)
     end
 end)
 
-local Layout = Instance.new("UIListLayout", MainFrame)
-Layout.Padding = UDim.new(0, 6) Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Instance.new("Frame", MainFrame).Size = UDim2.new(1,0,0,10)
+-- Khung chứa Nút
+local ContentFrame = Instance.new("Frame", MainFrame)
+ContentFrame.Size = UDim2.new(1, 0, 1, -30)
+ContentFrame.Position = UDim2.new(0, 0, 0, 30)
+ContentFrame.BackgroundTransparency = 1
 
-local function CreateButton(txt, defaultColor)
-    local btn = Instance.new("TextButton", MainFrame)
-    btn.Size = UDim2.new(0.9, 0, 0, 28) btn.BackgroundColor3 = defaultColor
-    btn.Text = txt btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.Font = Enum.Font.GothamBold btn.TextSize = 11
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-    return btn
-end
+local Layout = Instance.new("UIListLayout", ContentFrame)
+Layout.Padding = UDim.new(0, 6)
+Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-local BtnRefresh = CreateButton("🔄 Làm Mới Danh Sách", Color3.fromRGB(40, 80, 150))
+local paddingSpacer = Instance.new("Frame", ContentFrame)
+paddingSpacer.Size = UDim2.new(1, 0, 0, 2)
+paddingSpacer.BackgroundTransparency = 1
 
-local BtnSam = CreateButton("Auto Sam: OFF", Color3.fromRGB(50, 50, 50))
-local BtnSamAmt = CreateButton("Sam Amount: x1", Color3.fromRGB(80, 100, 150))
+local RefreshBtn = Instance.new("TextButton", ContentFrame)
+RefreshBtn.Size = UDim2.new(0.9, 0, 0, 25)
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+RefreshBtn.Text = "Làm Mới 2 Danh Sách"
+RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshBtn.Font = Enum.Font.GothamBold
+RefreshBtn.TextSize = 11
+Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 4)
 
-local BtnNormalDrop = CreateButton("Quest Thường: None ▼", Color3.fromRGB(30, 30, 35))
-local BtnNormalTele = CreateButton("🚀 Teleport to NPC Thường", Color3.fromRGB(40, 40, 45))
-local BtnNormal = CreateButton("Auto Normal Quest: OFF", Color3.fromRGB(50, 50, 50))
+-- NÚT QUEST THƯỜNG
+local NormalDropBtn = Instance.new("TextButton", ContentFrame)
+NormalDropBtn.Size = UDim2.new(0.9, 0, 0, 25)
+NormalDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+NormalDropBtn.Text = "Quest Thường: None ▼"
+NormalDropBtn.TextColor3 = Color3.fromRGB(255, 170, 0)
+NormalDropBtn.Font = Enum.Font.GothamBold
+NormalDropBtn.TextSize = 10
+Instance.new("UICorner", NormalDropBtn).CornerRadius = UDim.new(0, 4)
 
-local BtnDailyDrop = CreateButton("Quest Daily: None ▼", Color3.fromRGB(30, 30, 35))
-local BtnDailyTele = CreateButton("🚀 Teleport to NPC Daily", Color3.fromRGB(40, 40, 45))
-local BtnDaily = CreateButton("Auto Daily Quest: OFF", Color3.fromRGB(50, 50, 50))
+local NormalToggle = Instance.new("TextButton", ContentFrame)
+NormalToggle.Size = UDim2.new(0.9, 0, 0, 28)
+NormalToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+NormalToggle.Text = "Auto Thường [OFF]"
+NormalToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+NormalToggle.Font = Enum.Font.GothamBold
+NormalToggle.TextSize = 11
+Instance.new("UICorner", NormalToggle).CornerRadius = UDim.new(0, 4)
 
-local function CreateDropdownMenu(parentBtn, isDaily)
+-- NÚT QUEST DAILY
+local DailyDropBtn = Instance.new("TextButton", ContentFrame)
+DailyDropBtn.Size = UDim2.new(0.9, 0, 0, 25)
+DailyDropBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+DailyDropBtn.Text = "Quest Daily: None ▼"
+DailyDropBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
+DailyDropBtn.Font = Enum.Font.GothamBold
+DailyDropBtn.TextSize = 10
+Instance.new("UICorner", DailyDropBtn).CornerRadius = UDim.new(0, 4)
+
+local DailyToggle = Instance.new("TextButton", ContentFrame)
+DailyToggle.Size = UDim2.new(0.9, 0, 0, 28)
+DailyToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+DailyToggle.Text = "Auto Daily [OFF]"
+DailyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+DailyToggle.Font = Enum.Font.GothamBold
+DailyToggle.TextSize = 11
+Instance.new("UICorner", DailyToggle).CornerRadius = UDim.new(0, 4)
+
+-- HÀM TẠO SCROLLING FRAME CHO 2 DROPDOWN
+local function CreateDropScroll(parentBtn)
     local Scroll = Instance.new("ScrollingFrame", ScreenGui)
-    Scroll.Size = UDim2.new(0, 200, 0, 150)
-    Scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    Scroll.Visible = false Scroll.ZIndex = 100
-    Scroll.ScrollBarThickness = 2
+    Scroll.Size = UDim2.new(0, 198, 0, 150)
+    Scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    Scroll.Visible = false
+    Scroll.ZIndex = 10
+    Scroll.Active = true -- Bắt buộc để cuộn mượt
+    Scroll.ScrollBarThickness = 3
     Instance.new("UICorner", Scroll).CornerRadius = UDim.new(0, 4)
-    Instance.new("UIStroke", Scroll).Color = Color3.fromRGB(80, 150, 255)
+    Instance.new("UIStroke", Scroll).Color = Color3.fromRGB(0, 170, 255)
     Instance.new("UIListLayout", Scroll)
 
     game:GetService("RunService").RenderStepped:Connect(function()
-        if Scroll.Visible then Scroll.Position = UDim2.new(0, parentBtn.AbsolutePosition.X, 0, parentBtn.AbsolutePosition.Y + parentBtn.AbsoluteSize.Y + 2) end
-    end)
-
-    parentBtn.MouseButton1Click:Connect(function() Scroll.Visible = not Scroll.Visible end)
-
-    local function Populate(listData)
-        for _, child in pairs(Scroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-        local height = 0
-        for _, name in ipairs(listData) do
-            local itemBtn = Instance.new("TextButton", Scroll)
-            itemBtn.Size = UDim2.new(1, 0, 0, 25) itemBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-            itemBtn.Text = "  " .. name itemBtn.TextColor3 = Color3.fromRGB(255,255,255)
-            itemBtn.Font = Enum.Font.Gotham itemBtn.TextSize = 10 itemBtn.TextXAlignment = Enum.TextXAlignment.Left
-            itemBtn.ZIndex = 101 height = height + 25
-            
-            itemBtn.MouseButton1Click:Connect(function()
-                if isDaily then TargetDaily = name; parentBtn.Text = "Daily: " .. name .. " ▼"
-                else TargetNormal = name; parentBtn.Text = "Thường: " .. name .. " ▼" end
-                Scroll.Visible = false
-            end)
+        if Scroll.Visible then
+            Scroll.Position = UDim2.new(0, parentBtn.AbsolutePosition.X, 0, parentBtn.AbsolutePosition.Y + parentBtn.AbsoluteSize.Y + 2)
         end
-        Scroll.CanvasSize = UDim2.new(0, 0, 0, height)
-    end
-    return Populate
+    end)
+    return Scroll
 end
 
-local PopNormal = CreateDropdownMenu(BtnNormalDrop, false)
-local PopDaily = CreateDropdownMenu(BtnDailyDrop, true)
+local NormalScroll = CreateDropScroll(NormalDropBtn)
+local DailyScroll = CreateDropScroll(DailyDropBtn)
 
-BtnRefresh.MouseButton1Click:Connect(function()
-    ListNormal, ListDaily = {}, {}
+-- ============================
+-- 3. XỬ LÝ SỰ KIỆN MENU
+-- ============================
+BindTap(RefreshBtn, function()
     local tempN, tempD = {}, {}
+    local listNormal, listDaily = {}, {}
+    
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            local pN = string.lower(obj.Parent and obj.Parent.Name or "")
-            local oN = string.lower(obj.Name)
-            if string.find(pN, "daily") or string.find(oN, "daily") then
-                if not tempD[obj.Name] then tempD[obj.Name] = true table.insert(ListDaily, obj.Name) end
-            elseif string.find(pN, "quest") or string.find(oN, "quest") then
-                if not tempN[obj.Name] then tempN[obj.Name] = true table.insert(ListNormal, obj.Name) end
+        if obj:IsA("Model") and obj.Parent then
+            local pName = string.lower(obj.Parent.Name)
+            if string.find(pName, "quest") then
+                if string.find(pName, "daily") then
+                    if not tempD[obj.Name] then tempD[obj.Name] = true table.insert(listDaily, obj.Name) end
+                else
+                    if not tempN[obj.Name] then tempN[obj.Name] = true table.insert(listNormal, obj.Name) end
+                end
             end
         end
     end
-    table.sort(ListNormal) table.sort(ListDaily)
-    PopNormal(ListNormal) PopDaily(ListDaily)
-    BtnRefresh.Text = "✅ Đã tải xong!"
-    task.wait(1.5) BtnRefresh.Text = "🔄 Quét Tất Cả Quest"
+    table.sort(listNormal) table.sort(listDaily)
+    
+    for _, child in pairs(NormalScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    for _, child in pairs(DailyScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    
+    local hn = 0
+    for _, qName in ipairs(listNormal) do
+        local btn = Instance.new("TextButton", NormalScroll)
+        btn.Size = UDim2.new(1, 0, 0, 30) btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Text = "  " .. qName btn.Font = Enum.Font.Gotham btn.TextSize = 11 btn.TextXAlignment = Enum.TextXAlignment.Left btn.ZIndex = 11
+        hn = hn + 30
+        BindTap(btn, function() _G.SelectedNormal = qName NormalDropBtn.Text = "Thường: " .. qName .. " ▼" NormalScroll.Visible = false end)
+    end
+    NormalScroll.CanvasSize = UDim2.new(0, 0, 0, hn)
+    
+    local hd = 0
+    for _, qName in ipairs(listDaily) do
+        local btn = Instance.new("TextButton", DailyScroll)
+        btn.Size = UDim2.new(1, 0, 0, 30) btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Text = "  " .. qName btn.Font = Enum.Font.Gotham btn.TextSize = 11 btn.TextXAlignment = Enum.TextXAlignment.Left btn.ZIndex = 11
+        hd = hd + 30
+        BindTap(btn, function() _G.SelectedDaily = qName DailyDropBtn.Text = "Daily: " .. qName .. " ▼" DailyScroll.Visible = false end)
+    end
+    DailyScroll.CanvasSize = UDim2.new(0, 0, 0, hd)
 end)
 
-BtnSam.MouseButton1Click:Connect(function() AutoSam = not AutoSam BtnSam.Text = "Auto Sam: " .. (AutoSam and "ON" or "OFF") BtnSam.BackgroundColor3 = AutoSam and Color3.fromRGB(50, 150, 50) or Color3.fromRGB(50, 50, 50) end)
-BtnSamAmt.MouseButton1Click:Connect(function() if SamAmount == "x1" then SamAmount = "x10" else SamAmount = "x1" end BtnSamAmt.Text = "Sam Amount: " .. SamAmount end)
-BtnNormal.MouseButton1Click:Connect(function() AutoNormal = not AutoNormal BtnNormal.Text = "Auto Normal Quest: " .. (AutoNormal and "ON" or "OFF") BtnNormal.BackgroundColor3 = AutoNormal and Color3.fromRGB(150, 100, 50) or Color3.fromRGB(50, 50, 50) end)
-BtnDaily.MouseButton1Click:Connect(function() AutoDaily = not AutoDaily BtnDaily.Text = "Auto Daily Quest: " .. (AutoDaily and "ON" or "OFF") BtnDaily.BackgroundColor3 = AutoDaily and Color3.fromRGB(150, 50, 150) or Color3.fromRGB(50, 50, 50) end)
+BindTap(NormalDropBtn, function() NormalScroll.Visible = not NormalScroll.Visible DailyScroll.Visible = false end)
+BindTap(DailyDropBtn, function() DailyScroll.Visible = not DailyScroll.Visible NormalScroll.Visible = false end)
 
-local function TeleportToNPC(npcName)
-    if npcName == "" or npcName == "None" then return end
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj.Name == npcName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            MoveTo(obj.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)) break
-        end
-    end
-end
-BtnNormalTele.MouseButton1Click:Connect(function() TeleportToNPC(TargetNormal) end)
-BtnDailyTele.MouseButton1Click:Connect(function() TeleportToNPC(TargetDaily) end)
+BindTap(NormalToggle, function()
+    _G.AutoNormal = not _G.AutoNormal
+    NormalToggle.BackgroundColor3 = _G.AutoNormal and Color3.fromRGB(255, 170, 0) or Color3.fromRGB(40, 40, 40)
+    NormalToggle.Text = "Auto Thường " .. (_G.AutoNormal and "[ON]" or "[OFF]")
+end)
+
+BindTap(DailyToggle, function()
+    _G.AutoDaily = not _G.AutoDaily
+    DailyToggle.BackgroundColor3 = _G.AutoDaily and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(40, 40, 40)
+    DailyToggle.Text = "Auto Daily " .. (_G.AutoDaily and "[ON]" or "[OFF]")
+end)
 
 -- ============================
--- LÕI XỬ LÝ (CORE ENGINE V7)
+-- 4. BỘ NÃO NHẬN QUEST NGẦM (LÕI CŨ CỦA BẠN ĐANG CHẠY ĐƯỢC)
 -- ============================
-local function GetFullText(obj)
-    local txt = ""
-    for _, v in pairs(obj:GetDescendants()) do
-        if v:IsA("TextLabel") or v:IsA("TextButton") then
-            if v.Text and v.Text ~= "" then txt = txt .. " " .. string.lower(v.Text) end
-        end
-    end
-    return txt
-end
-
-local function SilentClick(btn)
-    if not btn then return end
-    pcall(function()
-        if getconnections then
-            for _, conn in pairs(getconnections(btn.MouseButton1Click)) do pcall(function() conn:Fire() end) end
-            for _, conn in pairs(getconnections(btn.Activated)) do pcall(function() conn:Fire() end) end
-        end
-        firesignal(btn.MouseButton1Click)
-        firesignal(btn.Activated)
-    end)
-end
-
--- Hàm Chọc NPC
-local function FireNPC(npcName)
-    if npcName == "" or npcName == "None" then return false end
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj.Name == npcName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
-            local cd = obj.HumanoidRootPart:FindFirstChildOfClass("ClickDetector")
-            if cd then 
-                pcall(function() fireclickdetector(cd, 0) end)
-                return true 
+local function HasActiveQuest()
+    local questGui = player.PlayerGui:FindFirstChild("QuestGui")
+    if questGui then
+        local qFrame = questGui:FindFirstChild("QuestsFrame")
+        if qFrame and qFrame.Visible then
+            local scroll = qFrame:FindFirstChild("QuestsScroll")
+            if scroll and scroll:FindFirstChild("QuestName") and scroll.QuestName.Text ~= "" then
+                return true
             end
         end
     end
     return false
 end
 
--- Hàm kiểm tra xem đã có Quest chưa (Chặn đứng Spam)
-local function HasActiveQuest()
-    local questGui = LocalPlayer.PlayerGui:FindFirstChild("QuestGui")
-    if questGui and questGui:FindFirstChild("QuestsFrame") then
-        return questGui.QuestsFrame.Visible -- Chỉ cần Frame hiện là chắc chắn đã nhận Quest
-    end 
-    return false
+local function PassiveClick(btn)
+    if not btn then return end
+    pcall(function() firesignal(btn.MouseButton1Click) end)
+    pcall(function() firesignal(btn.Activated) end)
+    pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
 end
 
-local lastClickTime = 0
-
 task.spawn(function()
-    while task.wait(0.2) do
-        local pGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pGui then continue end
+    while task.wait(0.5) do
+        -- Lấy mục tiêu ưu tiên Daily trước, nếu ko có thì lấy Normal
+        local targetQuestName = nil
+        if _G.AutoDaily and _G.SelectedDaily ~= "" then targetQuestName = _G.SelectedDaily
+        elseif _G.AutoNormal and _G.SelectedNormal ~= "" then targetQuestName = _G.SelectedNormal end
 
-        local questGui = pGui:FindFirstChild("QuestGui")
+        if not targetQuestName then continue end
+
+        local questGui = player.PlayerGui:FindFirstChild("QuestGui")
         if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
         
-        local isQuesting = AutoNormal or AutoDaily or AutoSam
-
-        -- NẾU ĐANG BẬT AUTO
-        if isQuesting then
-            -- BƯỚC 1: GỌI BẢNG THOẠI
-            if not (dialogue and dialogue.Visible) then
-                if tick() - lastClickTime > 2.5 then -- Cooldown 2.5 giây chống Spam
-                    if AutoSam then 
-                        FireNPC("Sam") lastClickTime = tick()
-                    elseif AutoNormal and not HasActiveQuest() then 
-                        FireNPC(TargetNormal) lastClickTime = tick()
-                    elseif AutoDaily and not HasActiveQuest() then 
-                        FireNPC(TargetDaily) lastClickTime = tick()
+        -- NHẬN TỪ XA NHƯ CODE CŨ CỦA BẠN
+        if not HasActiveQuest() and (not dialogue or not dialogue.Visible) then
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj.Name == targetQuestName and obj:IsA("Model") and obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
+                    local root = obj:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local cd = root:FindFirstChildOfClass("ClickDetector")
+                        if cd and fireclickdetector then 
+                            fireclickdetector(cd, 0) 
+                        end
                     end
+                    break 
                 end
             end
+        end
 
-            -- BƯỚC 2: BẤM NÚT (ĐỂ NGUYÊN BẢNG THOẠI TRÊN MÀN HÌNH CHỐNG LỖI)
-            if dialogue and dialogue.Visible then
-                local opts = dialogue:FindFirstChild("Options")
-                if opts then
-                    local btnNext = opts:FindFirstChild("Next")
-                    local btnOpt1 = opts:FindFirstChild("Option")
-                    local btnOpt2 = opts:FindFirstChild("Option2")
+        -- TỰ ĐỘNG BẤM BẢNG THOẠI
+        if dialogue and dialogue.Visible then
+            pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
+            local opts = dialogue:FindFirstChild("Options")
+            if opts then
+                local btnNext = opts:FindFirstChild("Next")
+                local btnOption = opts:FindFirstChild("Option")
+                local btnOption2 = opts:FindFirstChild("Option2")
+                local btnLeave = opts:FindFirstChild("Leave")
 
-                    if AutoSam then
-                        local txtOpt2 = btnOpt2 and string.lower(GetFullText(btnOpt2)) or ""
-                        
-                        -- CHỐNG BẤM MUA ROBUX TUYỆT ĐỐI
-                        if string.find(txtOpt2, "buy") or string.find(txtOpt2, "robux") then
-                            -- Đây là Màn hình 1 -> CHỈ bấm Option 1
-                            if btnOpt1 then SilentClick(btnOpt1) end
-                        else
-                            -- Đây là Màn hình 2 -> Bấm theo cấu hình
-                            if SamAmount == "x10" and btnOpt2 then 
-                                SilentClick(btnOpt2)
-                            elseif btnOpt1 then 
-                                SilentClick(btnOpt1) 
-                            end
-                        end
-                        task.wait(0.2)
-                        
-                    elseif AutoNormal or AutoDaily then
-                        if btnNext and btnNext.Visible then 
-                            SilentClick(btnNext)
-                        elseif btnOpt1 and btnOpt1.Visible then 
-                            SilentClick(btnOpt1) 
-                        end
-                        task.wait(0.2)
-                    end
-                end
+                -- Bấm theo thứ tự ưu tiên
+                if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
+                elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
+                elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
             end
         end
     end
