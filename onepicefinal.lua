@@ -39,7 +39,7 @@ _G.Yui = {
     HoldSkill = {R=false, Z=false, X=false, C=false, V=false, B=false, N=false, F=false}, HoldTime = 1,
     AutoHaki = {E=false, R=false, T=false},
     SelectedNormalQuest = "", AutoNormalQuest = false,
-    SelectedDailyQuest = "", AutoDailyQuest = false, AutoAcceptQuest = false,
+    SelectedDailyQuest = "", AutoDailyQuest = false, AutoAcceptQuest = false, TeleportToNPC = true,
     AutoSam = false, AutoSamAmount = "x1", AutoUpgradeCap = false,
     CollectChest = false, CollectBarrel = false, CollectSpeed = 0.2, 
     AutoFruit = false, AutoSpawnBox = false, CamUnderground = false,
@@ -498,7 +498,10 @@ local DailyBox = CreateSection("Daily Quest", QuestR)
 Setters.AutoDailyQuest = CreateToggle("Auto Daily Quest (Silent)", false, DailyBox, function(v) _G.Yui.AutoDailyQuest = v end)
 local UpdateDailyDrop, SetDailyDrop = CreateDropdown("Target Daily NPC", "None", DailyBox, function(v) _G.Yui.SelectedDailyQuest = v end)
 
+-- NÚT CƠ CHẾ MỚI
+Setters.TeleportToNPC = CreateToggle("Teleport & Wait for NPC [ON]", true, QuestL, function(v) _G.Yui.TeleportToNPC = v end)
 Setters.AutoAcceptQuest = CreateToggle("Auto Accept Any Quest GUI", false, QuestL, function(v) _G.Yui.AutoAcceptQuest = v end)
+
 CreateButton("Refresh All Quests", QuestL, function() 
     local nList, dList, tempN, tempD = {}, {}, {}, {}
     for _, obj in pairs(Workspace:GetDescendants()) do
@@ -782,11 +785,43 @@ CreateButton("Remove Auto Load", ConfigBox2, function()
     _G.Yui.AutoLoadConfig = false _G.Yui.AutoLoadName = "" AutoLoadStatus.Text = "Auto Load: OFF" SaveCoreSettings()
 end)
 
--- BỘ NÃO ĐỐI THOẠI & NHẬN QUEST
+-- HÀM BỔ TRỢ CHO QUEST
+local function HasActiveQuest()
+    local pGui = LocalPlayer:FindFirstChild("PlayerGui")
+    local questGui = pGui and pGui:FindFirstChild("QuestGui")
+    if questGui then
+        local qFrame = questGui:FindFirstChild("QuestsFrame")
+        if qFrame and qFrame.Visible then
+            local scroll = qFrame:FindFirstChild("QuestsScroll")
+            if scroll and (scroll:FindFirstChild("QuestName") or scroll:FindFirstChild("Objective")) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function SmartClickDialog(opts)
+    local btnNext = opts:FindFirstChild("Next")
+    local btnOption = opts:FindFirstChild("Option")
+    local btnOption2 = opts:FindFirstChild("Option2")
+    local btnLeave = opts:FindFirstChild("Leave")
+
+    if btnNext and btnNext.Visible then SilentClick(btnNext) return true end
+    if btnOption and btnOption.Visible then SilentClick(btnOption) return true end
+    if btnOption2 and btnOption2.Visible then SilentClick(btnOption2) return true end
+    if btnLeave and btnLeave.Visible and HasActiveQuest() then SilentClick(btnLeave) return true end
+    return false
+end
+
+-- =========================================================================
+-- BỘ NÃO ĐỐI THOẠI & NHẬN QUEST (ĐÃ TÍCH HỢP TELEPORT & WAIT CỦA MINI SCRIPT)
+-- =========================================================================
 task.spawn(function()
     while task.wait(0.5) do
         local pGui = LocalPlayer.PlayerGui if not pGui then continue end
 
+        -- Xử lý Hồi Sinh
         if _G.Yui.AutoSpawn then
             local loadFrame = pGui:FindFirstChild("Load") and pGui.Load:FindFirstChild("Frame") and pGui.Load.Frame:FindFirstChild("Load")
             local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
@@ -796,6 +831,7 @@ task.spawn(function()
             end
         end
         
+        -- Auto Upgrade Cap (Sam)
         if _G.Yui.AutoUpgradeCap then
             for _, gui in pairs(pGui:GetDescendants()) do
                 if gui:IsA("TextButton") or gui:IsA("ImageButton") then
@@ -807,17 +843,79 @@ task.spawn(function()
         local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
         local dialogue = questGui:FindFirstChild("Dialogue")
         
-        -- Kích hoạt NPC Ngầm
-        if not (dialogue and dialogue.Visible) then
-            if _G.Yui.AutoSam then FireNPC("Sam")
-            elseif _G.Yui.AutoNormalQuest and not HasActiveQuest() and _G.Yui.SelectedNormalQuest ~= "" then FireNPC(_G.Yui.SelectedNormalQuest)
-            elseif _G.Yui.AutoDailyQuest and not HasActiveQuest() and _G.Yui.SelectedDailyQuest ~= "" then FireNPC(_G.Yui.SelectedDailyQuest)
+        -- -------------------------------------------------------------
+        -- KÍCH HOẠT NPC NGẦM (THƯỜNG & DAILY) - CƠ CHẾ TELEPORT & WAIT
+        -- -------------------------------------------------------------
+        if not HasActiveQuest() then
+            -- Xác định mục tiêu ưu tiên Daily trước, nếu ko có thì Normal
+            local targetQuestName = nil
+            if _G.Yui.AutoDailyQuest and _G.Yui.SelectedDailyQuest ~= "" and _G.Yui.SelectedDailyQuest ~= "None" then targetQuestName = _G.Yui.SelectedDailyQuest
+            elseif _G.Yui.AutoNormalQuest and _G.Yui.SelectedNormalQuest ~= "" and _G.Yui.SelectedNormalQuest ~= "None" then targetQuestName = _G.Yui.SelectedNormalQuest end
+
+            if targetQuestName then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj.Name == targetQuestName and obj:IsA("Model") and obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
+                        local npcRoot = obj:FindFirstChild("HumanoidRootPart")
+                        local cd = npcRoot and npcRoot:FindFirstChildOfClass("ClickDetector")
+                        
+                        if npcRoot and cd then
+                            local char = LocalPlayer.Character
+                            local root = char and char:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                local dist = (root.Position - npcRoot.Position).Magnitude
+                                
+                                -- Nếu bật Teleport thì bay tới và đứng lỳ chờ (Chiến thuật chống lỗi)
+                                if _G.Yui.TeleportToNPC and dist > 10 then
+                                    local oldPos = root.CFrame
+                                    MoveTo(npcRoot.CFrame * CFrame.new(0, 0, 4)) -- Dùng hàm MoveTo đồng bộ của V26
+                                    root.Velocity = Vector3.zero
+                                    task.wait(0.3)
+                                    
+                                    if fireclickdetector then fireclickdetector(cd, 1) end
+                                    
+                                    local timeout = tick()
+                                    while tick() - timeout < 5 do
+                                        task.wait(0.2)
+                                        if HasActiveQuest() then break end 
+                                        
+                                        local d2 = questGui and questGui:FindFirstChild("Dialogue")
+                                        if d2 and d2.Visible then
+                                            pcall(function() d2.Position = UDim2.new(5, 0, 5, 0) end) -- Tàng hình bảng
+                                            local opts = d2:FindFirstChild("Options")
+                                            if opts then SmartClickDialog(opts) end
+                                        end
+                                    end
+                                    
+                                    task.wait(0.1)
+                                    MoveTo(oldPos) -- Quay về bãi farm
+                                else
+                                    -- Đứng đủ gần rồi thì chỉ bấm thôi
+                                    if fireclickdetector then fireclickdetector(cd, 1) end
+                                    local d2 = questGui and questGui:FindFirstChild("Dialogue")
+                                    if d2 and d2.Visible then
+                                        pcall(function() d2.Position = UDim2.new(5, 0, 5, 0) end)
+                                        local opts = d2:FindFirstChild("Options")
+                                        if opts then SmartClickDialog(opts) end
+                                    end
+                                end
+                            end
+                        end
+                        break -- Đã xử lý NPC
+                    end
+                end
             end
         end
 
-        -- Tương tác Bảng Thoại
+        -- KÍCH HOẠT SAM TỪ XA
+        if not (dialogue and dialogue.Visible) and _G.Yui.AutoSam then
+            FireNPC("Sam")
+        end
+
+        -- -------------------------------------------------------------
+        -- TƯƠNG TÁC BẢNG THOẠI (CHO SAM VÀ CÁC THỨ KHÁC)
+        -- -------------------------------------------------------------
         if dialogue and dialogue.Visible then
-            local shouldHide = _G.Yui.AutoAcceptQuest or _G.Yui.AutoSam or _G.Yui.AutoGetRod
+            local shouldHide = _G.Yui.AutoAcceptQuest or _G.Yui.AutoSam or _G.Yui.AutoGetRod or _G.Yui.AutoNormalQuest or _G.Yui.AutoDailyQuest
             if shouldHide then pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end) else pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end) end
 
             local opts = dialogue:FindFirstChild("Options")
@@ -841,6 +939,10 @@ task.spawn(function()
                                 if not string.find(txt, "nevermind") and not string.find(txt, "leave") and not string.find(txt, "no") then SilentClick(btn) break end
                             end
                         end
+                    end
+                else
+                    if _G.Yui.AutoNormalQuest or _G.Yui.AutoDailyQuest then
+                        SmartClickDialog(opts)
                     end
                 end
             end
