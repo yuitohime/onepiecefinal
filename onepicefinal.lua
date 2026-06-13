@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - SỬA LỖI KẸT KÉO THẢ (Kéo ở Thanh Tiêu Đề)
+-- AUTO QUEST & SAM - ĐỒNG BỘ DELAY CHO MỌI THAO TÁC (CHỐNG KẸT)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -17,7 +17,7 @@ _G.AutoDaily = false
 _G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
-_G.ClickDelay = 1 
+_G.ClickDelay = 1 -- Mặc định mỗi thao tác cách nhau 1 giây
 
 -- ============================
 -- 1. HÀM CẢM ỨNG CHUẨN MOBILE
@@ -35,7 +35,7 @@ local function BindTap(element, callback)
 end
 
 -- ============================
--- 2. TẠO MENU MINI
+-- 2. TẠO MENU MINI (CÓ TELEPORT VÀ KÉO THẢ)
 -- ============================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoQuest_Mini"
@@ -54,11 +54,10 @@ Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 -- Thanh Header (CẦM VÀO ĐÂY ĐỂ KÉO)
 local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 30)
-Header.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Làm màu nền hơi xám để dễ nhận diện vùng kéo
+Header.BackgroundColor3 = Color3.fromRGB(30, 30, 30) 
 Header.Active = true
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
 
--- Xóa viền góc dưới của Header để nối liền với Body
 local HeaderCover = Instance.new("Frame", Header)
 HeaderCover.Size = UDim2.new(1, 0, 0, 5)
 HeaderCover.Position = UDim2.new(0, 0, 1, -5)
@@ -92,14 +91,8 @@ BindTap(CloseBtn, function()
     ScreenGui:Destroy()
 end)
 
--- ==========================================
--- THUẬT TOÁN KÉO THẢ MƯỢT MÀ CHUẨN ROBLOX
--- ==========================================
-local dragging
-local dragInput
-local dragStart
-local startPos
-
+-- THUẬT TOÁN KÉO THẢ MƯỢT MÀ
+local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
     MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
@@ -110,27 +103,17 @@ Header.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
         end)
     end
 end)
-
 Header.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
+    if input == dragInput and dragging then update(input) end
 end)
--- ==========================================
 
 -- Khung chứa Nút
 local ContentFrame = Instance.new("Frame", MainFrame)
@@ -277,7 +260,6 @@ local DailyScroll = CreateDropScroll(DailyDropBtn)
 -- 3. XỬ LÝ SỰ KIỆN MENU
 -- ============================
 
--- LOGIC DỊCH CHUYỂN
 BindTap(TeleportBtn, function()
     local targetName = ""
     if _G.AutoSam then 
@@ -370,7 +352,7 @@ BindTap(SamToggle, function()
 end)
 
 -- ============================
--- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG
+-- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG (ĐỒNG BỘ DELAY)
 -- ============================
 local function HasActiveQuest()
     local questGui = player.PlayerGui:FindFirstChild("QuestGui")
@@ -394,57 +376,94 @@ local function PassiveClick(btn)
 end
 
 task.spawn(function()
-    while true do
-        task.wait(_G.ClickDelay)
+    while task.wait(0.1) do -- Quét màn hình liên tục để phản hồi nhạy bén
         
         local questGui = player.PlayerGui:FindFirstChild("QuestGui")
-        if not questGui then continue end
-        local dialogue = questGui:FindFirstChild("Dialogue")
+        local dialogue = questGui and questGui:FindFirstChild("Dialogue")
         
-        -- NHẬN TỪ XA
-        if not HasActiveQuest() and (not dialogue or not dialogue.Visible) then
-            
+        -- Nếu tắt hết Auto, trả lại vị trí bảng thoại
+        if not (_G.AutoNormal or _G.AutoDaily or _G.AutoSam) then
+            if dialogue and dialogue.Visible and dialogue.Position.X.Scale == 5 then
+                pcall(function() dialogue.Position = UDim2.new(0.5, 0, 0.8, 0) end) 
+            end
+            continue
+        end
+
+        -- ==========================================
+        -- BƯỚC 1: XỬ LÝ BẢNG THOẠI (NẾU ĐANG MỞ)
+        -- ==========================================
+        if dialogue and dialogue.Visible then
+            pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
+            local opts = dialogue:FindFirstChild("Options")
+            if opts then
+                local btnNext = opts:FindFirstChild("Next")
+                local btnOption = opts:FindFirstChild("Option")
+                local btnOption2 = opts:FindFirstChild("Option2")
+                local btnLeave = opts:FindFirstChild("Leave")
+
+                -- TẠM DỪNG THEO ĐÚNG DELAY TRƯỚC KHI BẤM (CHỐNG LẶP/SPAM KHIẾN LỖI)
+                task.wait(_G.ClickDelay)
+                
+                if _G.AutoSam then
+                    if btnOption and btnOption.Visible then 
+                        PassiveClick(btnOption)
+                    elseif btnNext and btnNext.Visible then 
+                        PassiveClick(btnNext)
+                    end
+                else
+                    if btnNext and btnNext.Visible then PassiveClick(btnNext)
+                    elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
+                    elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
+                    elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
+                end
+            end
+            continue -- Nếu đang xử lý bảng thoại thì bỏ qua việc nhận NPC bên dưới
+        end
+
+        -- ==========================================
+        -- BƯỚC 2: NHẬN NPC TỪ XA
+        -- ==========================================
+        if not HasActiveQuest() then
+            local hasClickedNPC = false
+
             if _G.AutoSam then
-                local foundSam = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent then
-                        local pName = string.lower(obj.Parent.Name)
-                        if string.find(pName, "quest") then
-                            local root = obj:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                local cd = root:FindFirstChildOfClass("ClickDetector")
-                                if cd and fireclickdetector then 
-                                    fireclickdetector(cd, 0) 
-                                    foundSam = true
-                                end
-                            end
+                    if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
+                        local root = obj:FindFirstChild("HumanoidRootPart")
+                        local cd = root and root:FindFirstChildOfClass("ClickDetector")
+                        if cd and fireclickdetector then 
+                            task.wait(_G.ClickDelay) -- ĐỢI DELAY TRƯỚC KHI BẤM VÀO NPC
+                            fireclickdetector(cd, 0) 
+                            hasClickedNPC = true
+                            break
                         end
                     end
                 end
-                if foundSam then continue end
             end
 
+            if hasClickedNPC then continue end
+
             if _G.AutoDaily then
-                local foundDaily = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj:IsA("Model") and obj.Parent then
                         local pName = string.lower(obj.Parent.Name)
                         if string.find(pName, "quest") and string.find(pName, "daily") then
                             if _G.SelectedDaily == "" or _G.SelectedDaily == obj.Name then
                                 local root = obj:FindFirstChild("HumanoidRootPart")
-                                if root then
-                                    local cd = root:FindFirstChildOfClass("ClickDetector")
-                                    if cd and fireclickdetector then 
-                                        fireclickdetector(cd, 0) 
-                                        foundDaily = true
-                                    end
+                                local cd = root and root:FindFirstChildOfClass("ClickDetector")
+                                if cd and fireclickdetector then 
+                                    task.wait(_G.ClickDelay) -- ĐỢI DELAY
+                                    fireclickdetector(cd, 0) 
+                                    hasClickedNPC = true
+                                    break
                                 end
                             end
                         end
                     end
                 end
-                if foundDaily then continue end
             end
+
+            if hasClickedNPC then continue end
 
             if _G.AutoNormal and _G.SelectedNormal ~= "" then
                 for _, obj in pairs(Workspace:GetDescendants()) do
@@ -452,49 +471,15 @@ task.spawn(function()
                         local pName = string.lower(obj.Parent.Name)
                         if string.find(pName, "quest") and not string.find(pName, "daily") then
                             local root = obj:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                local cd = root:FindFirstChildOfClass("ClickDetector")
-                                if cd and fireclickdetector then 
-                                    fireclickdetector(cd, 0) 
-                                end
+                            local cd = root and root:FindFirstChildOfClass("ClickDetector")
+                            if cd and fireclickdetector then 
+                                task.wait(_G.ClickDelay) -- ĐỢI DELAY
+                                fireclickdetector(cd, 0) 
+                                break 
                             end
-                            break 
                         end
                     end
                 end
-            end
-        end
-
-        -- ==========================================
-        -- TỰ ĐỘNG BẤM BẢNG THOẠI
-        -- ==========================================
-        if _G.AutoNormal or _G.AutoDaily or _G.AutoSam then
-            if dialogue and dialogue.Visible then
-                pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
-                local opts = dialogue:FindFirstChild("Options")
-                if opts then
-                    local btnNext = opts:FindFirstChild("Next")
-                    local btnOption = opts:FindFirstChild("Option")  -- Lựa chọn 1
-                    local btnOption2 = opts:FindFirstChild("Option2") -- Lựa chọn 2
-                    local btnLeave = opts:FindFirstChild("Leave")
-
-                    if _G.AutoSam then
-                        if btnOption and btnOption.Visible then 
-                            PassiveClick(btnOption)
-                        elseif btnNext and btnNext.Visible then 
-                            PassiveClick(btnNext)
-                        end
-                    else
-                        if btnNext and btnNext.Visible then PassiveClick(btnNext)
-                        elseif btnOption and btnOption.Visible then PassiveClick(btnOption)
-                        elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
-                        elseif btnLeave and btnLeave.Visible then PassiveClick(btnLeave) end
-                    end
-                end
-            end
-        else
-            if dialogue and dialogue.Visible and dialogue.Position.X.Scale == 5 then
-                pcall(function() dialogue.Position = UDim2.new(0.5, 0, 0.8, 0) end) 
             end
         end
     end
