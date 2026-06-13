@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST & SAM - THÊM TÙY CHỈNH DELAY CHỐNG SPAM KẸT BẢNG THOẠI
+-- AUTO QUEST & SAM - TELEPORT NPC & KÉO THẢ TOÀN MENU
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -17,7 +17,7 @@ _G.AutoDaily = false
 _G.AutoSam = false
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
-_G.ClickDelay = 1 -- [MỚI] Mặc định delay 1 giây để an toàn chống lặp
+_G.ClickDelay = 1 
 
 -- ============================
 -- 1. HÀM CẢM ỨNG CHUẨN MOBILE
@@ -35,7 +35,7 @@ local function BindTap(element, callback)
 end
 
 -- ============================
--- 2. TẠO MENU MINI (CÓ KÉO THẢ, NÚT X & CHỈNH DELAY)
+-- 2. TẠO MENU MINI (CÓ TELEPORT VÀ KÉO THẢ MỌI NƠI)
 -- ============================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AutoQuest_Mini"
@@ -43,7 +43,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 310) -- Nới rộng thêm để chứa ô nhập Delay
+MainFrame.Size = UDim2.new(0, 230, 0, 340) -- Đã nới rộng thêm cho nút Teleport
 MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -51,11 +51,10 @@ MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 
--- Thanh Header (CẦM VÀO ĐÂY ĐỂ KÉO)
+-- Thanh Header
 local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 30)
 Header.BackgroundTransparency = 1
-Header.Active = true
 
 local Title = Instance.new("TextLabel", Header)
 Title.Size = UDim2.new(1, -30, 1, 0)
@@ -84,9 +83,9 @@ BindTap(CloseBtn, function()
     ScreenGui:Destroy()
 end)
 
--- Kéo thả mượt mà
+-- NÂNG CẤP: KÉO THẢ TOÀN BỘ KHUNG (Bấm vào vùng đen nào cũng kéo được)
 local dragToggle, dragInput, dragStart, startPos
-Header.InputBegan:Connect(function(input)
+MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragToggle = true
         dragStart = input.Position
@@ -96,7 +95,7 @@ Header.InputBegan:Connect(function(input)
         end)
     end
 end)
-Header.InputChanged:Connect(function(input)
+MainFrame.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
 end)
 UserInputService.InputChanged:Connect(function(input)
@@ -120,7 +119,17 @@ local paddingSpacer = Instance.new("Frame", ContentFrame)
 paddingSpacer.Size = UDim2.new(1, 0, 0, 2)
 paddingSpacer.BackgroundTransparency = 1
 
--- [MỚI] KHUNG CHỈNH DELAY
+-- NÚT DỊCH CHUYỂN
+local TeleportBtn = Instance.new("TextButton", ContentFrame)
+TeleportBtn.Size = UDim2.new(0.9, 0, 0, 25)
+TeleportBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
+TeleportBtn.Text = "✈ Dịch Chuyển Đến NPC"
+TeleportBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportBtn.Font = Enum.Font.GothamBold
+TeleportBtn.TextSize = 11
+Instance.new("UICorner", TeleportBtn).CornerRadius = UDim.new(0, 4)
+
+-- KHUNG CHỈNH DELAY
 local DelayFrame = Instance.new("Frame", ContentFrame)
 DelayFrame.Size = UDim2.new(0.9, 0, 0, 25)
 DelayFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -143,13 +152,12 @@ DelayInput.TextColor3 = Color3.fromRGB(0, 255, 150)
 DelayInput.Font = Enum.Font.GothamBold
 DelayInput.TextSize = 11
 
--- Xử lý khi nhập Delay mới
 DelayInput.FocusLost:Connect(function()
     local val = tonumber(DelayInput.Text)
-    if val and val > 0 then
+    if val and val >= 0 then
         _G.ClickDelay = val
     else
-        DelayInput.Text = tostring(_G.ClickDelay) -- Trả về cũ nếu nhập sai
+        DelayInput.Text = tostring(_G.ClickDelay)
     end
 end)
 
@@ -157,7 +165,7 @@ end)
 local RefreshBtn = Instance.new("TextButton", ContentFrame)
 RefreshBtn.Size = UDim2.new(0.9, 0, 0, 25)
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-RefreshBtn.Text = "Làm Mới 2 Danh Sách"
+RefreshBtn.Text = "Làm Mới Danh Sách"
 RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 RefreshBtn.Font = Enum.Font.GothamBold
 RefreshBtn.TextSize = 11
@@ -241,6 +249,30 @@ local DailyScroll = CreateDropScroll(DailyDropBtn)
 -- ============================
 -- 3. XỬ LÝ SỰ KIỆN MENU
 -- ============================
+
+-- LOGIC DỊCH CHUYỂN
+BindTap(TeleportBtn, function()
+    local targetName = ""
+    if _G.AutoSam then 
+        targetName = "Sam"
+    elseif _G.SelectedDaily ~= "" then 
+        targetName = _G.SelectedDaily
+    elseif _G.SelectedNormal ~= "" then 
+        targetName = _G.SelectedNormal
+    end
+
+    if targetName ~= "" and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if obj.Name == targetName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+                if obj.Parent and string.find(string.lower(obj.Parent.Name), "quest") then
+                    player.Character.HumanoidRootPart.CFrame = obj.HumanoidRootPart.CFrame
+                    break
+                end
+            end
+        end
+    end
+end)
+
 BindTap(RefreshBtn, function()
     local tempN, tempD = {}, {}
     local listNormal, listDaily = {}, {}
@@ -336,7 +368,6 @@ end
 
 task.spawn(function()
     while true do
-        -- [MỚI] Chờ theo thời gian Delay bạn cấu hình trên UI
         task.wait(_G.ClickDelay)
         
         local questGui = player.PlayerGui:FindFirstChild("QuestGui")
@@ -411,11 +442,10 @@ task.spawn(function()
         end
 
         -- ==========================================
-        -- TỰ ĐỘNG BẤM BẢNG THOẠI (CHỈ KHI ĐANG BẬT AUTO)
+        -- TỰ ĐỘNG BẤM BẢNG THOẠI
         -- ==========================================
         if _G.AutoNormal or _G.AutoDaily or _G.AutoSam then
             if dialogue and dialogue.Visible then
-                -- Giấu bảng thoại đi cho đỡ vướng màn hình khi Auto
                 pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
                 local opts = dialogue:FindFirstChild("Options")
                 if opts then
@@ -425,10 +455,12 @@ task.spawn(function()
                     local btnLeave = opts:FindFirstChild("Leave")
 
                     if _G.AutoSam then
-                        -- Đối với Sam, BẮT BUỘC ưu tiên bấm Option trước tiên
-                        if btnOption and btnOption.Visible then PassiveClick(btnOption)
-                        elseif btnOption2 and btnOption2.Visible then PassiveClick(btnOption2)
-                        elseif btnNext and btnNext.Visible then PassiveClick(btnNext)
+                        -- FIX TRIỆT ĐỂ SAM: Ưu tiên bấm Option (Lựa chọn 1) một cách tuyệt đối
+                        if btnOption and btnOption.Visible then 
+                            PassiveClick(btnOption)
+                        -- Nếu màn hình tiếp theo không có chữ Option mà có chữ Next, thì bấm Next
+                        elseif btnNext and btnNext.Visible then 
+                            PassiveClick(btnNext)
                         end
                     else
                         if btnNext and btnNext.Visible then PassiveClick(btnNext)
@@ -439,7 +471,6 @@ task.spawn(function()
                 end
             end
         else
-            -- KHI TẮT AUTO: Trả lại bảng thoại vị trí cũ nếu lúc trước đang bị giấu
             if dialogue and dialogue.Visible and dialogue.Position.X.Scale == 5 then
                 pcall(function() dialogue.Position = UDim2.new(0.5, 0, 0.8, 0) end) 
             end
