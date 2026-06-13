@@ -1,5 +1,5 @@
 -- =========================================================================
--- [ULTIMATE MASTER] YUIHUB V26 - SILENT QUESTS, SAM OPTIONS, RAINBOW THEME
+-- [ULTIMATE MASTER] YUIHUB V27 - SILENT QUEST & SAM FIX, FULL FEATURES
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -62,8 +62,7 @@ local function SaveCoreSettings()
     if writefile and HttpService then
         writefile(CoreFile, HttpService:JSONEncode({
             AutoRejoin = _G.Yui.AutoRejoin, AutoExecute = _G.Yui.AutoExecute, ExecuteScript = _G.Yui.ExecuteScript,
-            AutoLoadConfig = _G.Yui.AutoLoadConfig, AutoLoadName = _G.Yui.AutoLoadName, LastConfig = _G.Yui.ConfigName,
-            CustomHue = _G.Yui.CustomHue
+            AutoLoadConfig = _G.Yui.AutoLoadConfig, AutoLoadName = _G.Yui.AutoLoadName, LastConfig = _G.Yui.ConfigName, CustomHue = _G.Yui.CustomHue
         }))
     end
 end
@@ -186,7 +185,7 @@ local function ShowMainGui()
     if IntroGui then IntroGui:Destroy() end
     if ScreenGui and ScreenGui:FindFirstChild("YuiMainFrame") then ScreenGui.YuiMainFrame.Visible = true end
 end
-task.delay(4, ShowMainGui) -- Failsafe
+task.delay(4, ShowMainGui) 
 
 task.spawn(function()
     TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Position = UDim2.new(1, -300, 1, -80)}):Play()
@@ -227,13 +226,13 @@ BindTap(OpenIconBtn, function() MainFrame.Visible = true OpenIconBtn.Visible = f
 local Header = Instance.new("Frame", MainFrame) Header.Size = UDim2.new(1, -20, 0, 60) Header.Position = UDim2.new(0, 10, 0, 10) Header.BackgroundColor3 = Theme.HeaderBg Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8) Instance.new("UIStroke", Header).Color = Theme.Stroke
 local BlueLine = Instance.new("Frame", Header) BlueLine.Size = UDim2.new(0, 3, 0, 30) BlueLine.Position = UDim2.new(0, 15, 0, 15) BlueLine.BackgroundColor3 = Theme.Accent Instance.new("UICorner", BlueLine).CornerRadius = UDim.new(1, 0) table.insert(DynamicUIElements, {Obj = BlueLine, Prop = "BackgroundColor3"})
 local WelcomeText = Instance.new("TextLabel", Header) WelcomeText.Size = UDim2.new(0, 150, 0, 15) WelcomeText.Position = UDim2.new(0, 25, 0, 15) WelcomeText.BackgroundTransparency = 1 WelcomeText.Text = "Ultimate Script Hub" WelcomeText.TextColor3 = Theme.TextSub WelcomeText.Font = Enum.Font.Gotham WelcomeText.TextSize = 10 WelcomeText.TextXAlignment = Enum.TextXAlignment.Left
-local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V26" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
+local HubName = Instance.new("TextLabel", Header) HubName.Size = UDim2.new(0, 200, 0, 25) HubName.Position = UDim2.new(0, 25, 0, 25) HubName.BackgroundTransparency = 1 HubName.Text = "Yui HUB V27" HubName.TextColor3 = Theme.Accent HubName.Font = Enum.Font.GothamBold HubName.TextSize = 20 HubName.TextXAlignment = Enum.TextXAlignment.Left table.insert(DynamicUIElements, {Obj = HubName, Prop = "TextColor3"})
 
 local MinBtn = Instance.new("TextButton", Header) MinBtn.Size = UDim2.new(0, 30, 0, 30) MinBtn.Position = UDim2.new(1, -65, 0, 15) MinBtn.BackgroundTransparency = 1 MinBtn.Text = "—" MinBtn.TextColor3 = Theme.TextTitle MinBtn.Font = Enum.Font.GothamBold MinBtn.TextSize = 14
 BindTap(MinBtn, function() MainFrame.Visible = false OpenIconBtn.Visible = true for _, dd in ipairs(AllDropdowns) do dd.Visible = false end end)
 
 local CloseBtn = Instance.new("TextButton", Header) CloseBtn.Size = UDim2.new(0, 30, 0, 30) CloseBtn.Position = UDim2.new(1, -35, 0, 15) CloseBtn.BackgroundTransparency = 1 CloseBtn.Text = "✕" CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80) CloseBtn.Font = Enum.Font.GothamBold CloseBtn.TextSize = 14
-BindTap(CloseBtn, function() ScreenGui:Destroy() ESPFolder:Destroy() for _, line in pairs(ESPTracers) do if line then line.Visible = false line:Remove() end end ESPTracers = {} end)
+BindTap(CloseBtn, function() ScreenGui:Destroy() ESPFolder:Destroy() for _, line in pairs(ESPTracers) do if line then line:Remove() end end end)
 
 local Sidebar = Instance.new("ScrollingFrame", MainFrame) Sidebar.Size = UDim2.new(0, 130, 1, -85) Sidebar.Position = UDim2.new(0, 10, 0, 75) Sidebar.BackgroundTransparency = 1 Sidebar.ScrollBarThickness = 0 local SidebarLayout = Instance.new("UIListLayout", Sidebar) SidebarLayout.Padding = UDim.new(0, 5)
 local ContentArea = Instance.new("Frame", MainFrame) ContentArea.Size = UDim2.new(1, -155, 1, -85) ContentArea.Position = UDim2.new(0, 145, 0, 75) ContentArea.BackgroundTransparency = 1
@@ -402,17 +401,37 @@ local function CreateMultiDropdown(labelStr, parentBox, globalList)
     return populate
 end
 
-local function GetButtonText(btn)
-    local txt = btn.Text or ""
-    for _, child in pairs(btn:GetChildren()) do
-        if child:IsA("TextLabel") and child.Text ~= "" then txt = txt .. " " .. child.Text end
+-- =========================================================================
+-- SUPER SILENT CLICK & TEXT EXTRACTOR
+-- =========================================================================
+local function GetFullText(obj)
+    local txt = obj.Name or ""
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        if obj.Text and obj.Text ~= "" then txt = txt .. " " .. obj.Text end
+    end
+    for _, v in pairs(obj:GetDescendants()) do
+        if v:IsA("TextLabel") or v:IsA("TextButton") then
+            if v.Text and v.Text ~= "" then txt = txt .. " " .. v.Text end
+        end
     end
     return string.lower(txt)
 end
 
 local function SilentClick(btn)
     if not btn then return end
-    pcall(function() firesignal(btn.MouseButton1Click) end) pcall(function() firesignal(btn.Activated) end) pcall(function() for _, c in pairs(getconnections(btn.MouseButton1Click)) do c:Fire() end end)
+    pcall(function()
+        local events = {"Activated", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "TouchTap"}
+        for _, eventName in ipairs(events) do
+            if btn[eventName] then
+                pcall(function() firesignal(btn[eventName]) end)
+                if getconnections then
+                    for _, conn in ipairs(getconnections(btn[eventName])) do
+                        pcall(function() conn:Fire() end)
+                    end
+                end
+            end
+        end
+    end)
 end
 
 local function FireNPC(npcName)
@@ -585,8 +604,8 @@ Setters.CamUnderground = CreateToggle("Hide Camera Underground", false, SkyBaseB
 Setters.CollectSpeed = CreateSlider("Sweep Delay (s)", 0.1, 2, 0.2, SkyBaseBox, function(v) _G.Yui.CollectSpeed = v end, true)
 
 local CrateBox = CreateSection("Chest & Barrel Sweep", ResL)
-Setters.CollectChest = CreateToggle("Auto Chests (No Loop)", false, CrateBox, function(v) _G.Yui.CollectChest = v end)
-Setters.CollectBarrel = CreateToggle("Auto Barrels/Crates (No Loop)", false, CrateBox, function(v) _G.Yui.CollectBarrel = v end)
+Setters.CollectChest = CreateToggle("Auto Chests", false, CrateBox, function(v) _G.Yui.CollectChest = v end)
+Setters.CollectBarrel = CreateToggle("Auto Barrels/Crates", false, CrateBox, function(v) _G.Yui.CollectBarrel = v end)
 
 local JuiceBox = CreateSection("Juice & Drinks", ResR)
 Setters.AutoJuice = CreateToggle("Auto Make Juice", false, JuiceBox, function(v) _G.Yui.AutoJuice = v end)
@@ -782,72 +801,6 @@ CreateButton("Remove Auto Load", ConfigBox2, function()
     _G.Yui.AutoLoadConfig = false _G.Yui.AutoLoadName = "" AutoLoadStatus.Text = "Auto Load: OFF" SaveCoreSettings()
 end)
 
--- BỘ NÃO ĐỐI THOẠI & NHẬN QUEST
-task.spawn(function()
-    while task.wait(0.5) do
-        local pGui = LocalPlayer.PlayerGui if not pGui then continue end
-
-        if _G.Yui.AutoSpawn then
-            local loadFrame = pGui:FindFirstChild("Load") and pGui.Load:FindFirstChild("Frame") and pGui.Load.Frame:FindFirstChild("Load")
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-            if (hum and hum.Health == 0) or (loadFrame and loadFrame.Visible) then
-                if loadFrame then SilentClick(loadFrame) end
-                pcall(function() local cam = Workspace.CurrentCamera local char = LocalPlayer.Character if cam and char and char:FindFirstChild("Humanoid") then cam.CameraSubject = char.Humanoid cam.CameraType = Enum.CameraType.Custom end end)
-            end
-        end
-        
-        if _G.Yui.AutoUpgradeCap then
-            for _, gui in pairs(pGui:GetDescendants()) do
-                if gui:IsA("TextButton") or gui:IsA("ImageButton") then
-                    if gui.Text and string.find(string.lower(gui.Text), "upgrade capacity") then SilentClick(gui) end
-                end
-            end
-        end
-
-        local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
-        local dialogue = questGui:FindFirstChild("Dialogue")
-        
-        -- Kích hoạt NPC Ngầm
-        if not (dialogue and dialogue.Visible) then
-            if _G.Yui.AutoSam then FireNPC("Sam")
-            elseif _G.Yui.AutoNormalQuest and not HasActiveQuest() and _G.Yui.SelectedNormalQuest ~= "" then FireNPC(_G.Yui.SelectedNormalQuest)
-            elseif _G.Yui.AutoDailyQuest and not HasActiveQuest() and _G.Yui.SelectedDailyQuest ~= "" then FireNPC(_G.Yui.SelectedDailyQuest)
-            end
-        end
-
-        -- Tương tác Bảng Thoại
-        if dialogue and dialogue.Visible then
-            local shouldHide = _G.Yui.AutoAcceptQuest or _G.Yui.AutoSam or _G.Yui.AutoGetRod
-            if shouldHide then pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end) else pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end) end
-
-            local opts = dialogue:FindFirstChild("Options")
-            if opts then
-                if _G.Yui.AutoSam then
-                    for _, btn in pairs(opts:GetChildren()) do
-                        if btn:IsA("TextButton") and btn.Visible then
-                            local txt = string.lower(GetButtonText(btn))
-                            if string.find(txt, "compasses") and not string.find(txt, "buy") then SilentClick(btn) task.wait(0.1)
-                            elseif string.find(txt, "compasses") then SilentClick(btn) task.wait(0.1)
-                            elseif string.find(txt, string.lower(_G.Yui.AutoSamAmount)) then SilentClick(btn) task.wait(0.1) end
-                        end
-                    end
-                elseif _G.Yui.AutoAcceptQuest then
-                    local btnNext = opts:FindFirstChild("Next")
-                    if btnNext and btnNext.Visible then SilentClick(btnNext) 
-                    else
-                        for _, btn in pairs(opts:GetChildren()) do
-                            if btn:IsA("TextButton") and btn.Visible and string.lower(btn.Name) ~= "leave" then
-                                local txt = string.lower(GetButtonText(btn))
-                                if not string.find(txt, "nevermind") and not string.find(txt, "leave") and not string.find(txt, "no") then SilentClick(btn) break end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
 -- =========================================================================
 -- [MASTER THREADS] - PHYSICS & EXPLOITS
 -- =========================================================================
@@ -860,6 +813,7 @@ RunService.Stepped:Connect(function()
     if _G.Yui.Noclip and LocalPlayer.Character then for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do if part:IsA("BasePart") then part.CanCollide = false end end end
 end)
 
+-- Walk On Water
 local WOWPad = Instance.new("Part") WOWPad.Size = Vector3.new(5, 1, 5) WOWPad.Transparency = 1 WOWPad.Anchored = true WOWPad.CanCollide = false WOWPad.Parent = Workspace
 RunService.Heartbeat:Connect(function()
     if _G.Yui.WalkOnWater and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -871,6 +825,7 @@ RunService.Heartbeat:Connect(function()
     else WOWPad.Position = Vector3.new(0, 99999, 0) WOWPad.CanCollide = false end
 end)
 
+-- ESP TRACERS & BOUNTY
 RunService.RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
     if _G.Yui.ESPPlayer then
@@ -909,6 +864,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- CAMERA UNDERGROUND LOCK
 RunService.RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
     local isCollecting = _G.Yui.CollectChest or _G.Yui.CollectBarrel or _G.Yui.AutoFruit or _G.Yui.AutoJuice or _G.Yui.AutoSpawnBox
@@ -920,6 +876,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- AUTO HUNT
 task.spawn(function()
     while task.wait() do
         if _G.Yui.AutoHunt and _G.Yui.TargetPlayer ~= "None" then
@@ -931,6 +888,7 @@ task.spawn(function()
     end
 end)
 
+-- AUTO SAFE
 task.spawn(function()
     while task.wait(0.5) do
         local char = LocalPlayer.Character
@@ -958,6 +916,7 @@ task.spawn(function()
         local anchor = root.CFrame
         if _G.Yui.CollectMethod == "Teleport (Continuous)" then anchor = nil end
 
+        -- [A] AUTO FRUIT
         if _G.Yui.AutoFruit and not didAction then
             for _, obj in pairs(Workspace:GetDescendants()) do
                 if obj:IsA("Tool") and string.find(string.lower(obj.Name), "fruit") then 
@@ -972,6 +931,7 @@ task.spawn(function()
             if didAction and anchor and _G.Yui.CollectMethod == "Teleport (Return)" then MoveTo(anchor) end
         end
 
+        -- [B] AUTO SPAWNBOX
         if _G.Yui.AutoSpawnBox and not didAction then
             for _, obj in pairs(Workspace:GetDescendants()) do
                 local pN = string.lower(obj.Parent and obj.Parent.Name or "")
@@ -984,6 +944,7 @@ task.spawn(function()
             if didAction and anchor and _G.Yui.CollectMethod == "Teleport (Return)" then MoveTo(anchor) end
         end
 
+        -- [C] AUTO JUICE
         if _G.Yui.AutoJuice and not didAction then
             local bowls = {}
             for _, obj in pairs(Workspace:GetDescendants()) do
@@ -1004,6 +965,7 @@ task.spawn(function()
             if didAction and anchor and _G.Yui.CollectMethod == "Teleport (Return)" then MoveTo(anchor) end
         end
 
+        -- [D] AUTO CHEST
         if _G.Yui.CollectChest and not didAction then
             local chests = {}
             for _, obj in pairs(Workspace:GetDescendants()) do
@@ -1026,6 +988,7 @@ task.spawn(function()
             if didAction and anchor and _G.Yui.CollectMethod == "Teleport (Return)" then MoveTo(anchor) end
         end
 
+        -- [E] AUTO BARREL
         if _G.Yui.CollectBarrel and not didAction then
             local barrels = {}
             for _, obj in pairs(Workspace:GetDescendants()) do
@@ -1053,16 +1016,134 @@ task.spawn(function()
 end)
 
 local LastAttack = tick()
+local function GetQuestMobName()
+    local questGui = LocalPlayer.PlayerGui:FindFirstChild("QuestGui")
+    if questGui and questGui:FindFirstChild("QuestsFrame") and questGui.QuestsFrame.Visible then
+        local scroll = questGui.QuestsFrame:FindFirstChild("QuestsScroll")
+        if scroll then
+            local objective = scroll:FindFirstChild("Objective")
+            if objective and objective.Text ~= "" then return string.gsub(objective.Text, "%s*%d+/%d+$", "") end
+        end
+    end return nil
+end
+
+local function HasActiveQuest() return GetQuestMobName() ~= nil end
+
+local function SilentClick(btn)
+    if not btn then return end
+    pcall(function()
+        local events = {"Activated", "MouseButton1Click", "MouseButton1Down", "MouseButton1Up", "TouchTap"}
+        for _, eventName in ipairs(events) do
+            if btn[eventName] then
+                pcall(function() firesignal(btn[eventName]) end)
+                if getconnections then for _, conn in ipairs(getconnections(btn[eventName])) do pcall(function() conn:Fire() end) end end
+            end
+        end
+    end)
+end
+
+local function GetFullText(obj)
+    local txt = obj.Name or ""
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        if obj.Text and obj.Text ~= "" then txt = txt .. " " .. obj.Text end
+    end
+    for _, v in pairs(obj:GetDescendants()) do
+        if v:IsA("TextLabel") or v:IsA("TextButton") then
+            if v.Text and v.Text ~= "" then txt = txt .. " " .. v.Text end
+        end
+    end
+    return string.lower(txt)
+end
+
+local function FireNPC(npcName)
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name == npcName and obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") then
+            local cd = obj.HumanoidRootPart:FindFirstChildOfClass("ClickDetector")
+            if cd then fireclickdetector(cd, 0) return true end
+        end
+    end
+    return false
+end
+
+-- BỘ NÃO ĐỐI THOẠI QUYỀN LỰC NHẤT
+task.spawn(function()
+    while task.wait(0.5) do
+        local pGui = LocalPlayer.PlayerGui if not pGui then continue end
+
+        -- Auto Spawn
+        if _G.Yui.AutoSpawn then
+            local loadFrame = pGui:FindFirstChild("Load") and pGui.Load:FindFirstChild("Frame") and pGui.Load.Frame:FindFirstChild("Load")
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            if (hum and hum.Health == 0) or (loadFrame and loadFrame.Visible) then
+                if loadFrame then SilentClick(loadFrame) end
+                pcall(function() local cam = Workspace.CurrentCamera local char = LocalPlayer.Character if cam and char and char:FindFirstChild("Humanoid") then cam.CameraSubject = char.Humanoid cam.CameraType = Enum.CameraType.Custom end end)
+            end
+        end
+        
+        -- Auto Upgrade Capacity
+        if _G.Yui.AutoUpgradeCap then
+            for _, gui in pairs(pGui:GetDescendants()) do
+                if gui:IsA("TextButton") or gui:IsA("ImageButton") then
+                    if gui.Text and string.find(string.lower(gui.Text), "upgrade capacity") then SilentClick(gui) end
+                end
+            end
+        end
+
+        local questGui = pGui:FindFirstChild("QuestGui") if not questGui then continue end
+        local dialogue = questGui:FindFirstChild("Dialogue")
+        
+        -- Kích hoạt NPC Ngầm
+        if not (dialogue and dialogue.Visible) then
+            if _G.Yui.AutoSam then FireNPC("Sam")
+            elseif _G.Yui.AutoNormalQuest and not HasActiveQuest() and _G.Yui.SelectedNormalQuest ~= "" then FireNPC(_G.Yui.SelectedNormalQuest)
+            elseif _G.Yui.AutoDailyQuest and not HasActiveQuest() and _G.Yui.SelectedDailyQuest ~= "" then FireNPC(_G.Yui.SelectedDailyQuest)
+            end
+        end
+
+        -- Tương tác Bảng Thoại (Xuyên Thấu)
+        if dialogue and dialogue.Visible then
+            local shouldHide = _G.Yui.AutoAcceptQuest or _G.Yui.AutoSam or _G.Yui.AutoGetRod or _G.Yui.AutoNormalQuest or _G.Yui.AutoDailyQuest
+            if shouldHide then pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end) else pcall(function() dialogue.AnchorPoint = Vector2.new(0.5, 0.5) dialogue.Position = UDim2.new(0.5, 0, 0.5, 0) end) end
+
+            local opts = dialogue:FindFirstChild("Options")
+            if opts then
+                if _G.Yui.AutoSam then
+                    local btnCompasses, btnAmount, btnNext = nil, nil, nil
+                    for _, btn in pairs(opts:GetChildren()) do
+                        if btn:IsA("TextButton") and btn.Visible then
+                            local txt = GetFullText(btn)
+                            if string.find(txt, "compasses") and not string.find(txt, "buy") then btnCompasses = btn
+                            elseif string.find(txt, string.lower(_G.Yui.AutoSamAmount)) then btnAmount = btn
+                            elseif string.find(txt, "next") or string.find(txt, "accept") then btnNext = btn end
+                        end
+                    end
+                    if btnCompasses then SilentClick(btnCompasses) elseif btnAmount then SilentClick(btnAmount) elseif btnNext then SilentClick(btnNext) end
+                    task.wait(0.2)
+                    
+                elseif _G.Yui.AutoAcceptQuest or _G.Yui.AutoNormalQuest or _G.Yui.AutoDailyQuest then
+                    local btnAccept, btnNext = nil, nil
+                    for _, btn in pairs(opts:GetChildren()) do
+                        if btn:IsA("TextButton") and btn.Visible then
+                            local txt = GetFullText(btn)
+                            if not string.find(txt, "nevermind") and not string.find(txt, "leave") and not string.find(txt, "no") then
+                                if string.find(txt, "next") then btnNext = btn else btnAccept = btn end
+                            end
+                        end
+                    end
+                    if btnAccept then SilentClick(btnAccept) elseif btnNext then SilentClick(btnNext) end
+                    task.wait(0.2)
+                end
+            end
+        end
+    end
+end)
+
+-- FARMING & ATTACK
 task.spawn(function()
     while task.wait() do
         local char = LocalPlayer.Character local root = char and char:FindFirstChild("HumanoidRootPart") if not root then continue end
 
-        local targetMobName = ""
-        local pGui = LocalPlayer.PlayerGui local questGui = pGui:FindFirstChild("QuestGui")
-        if questGui and questGui:FindFirstChild("QuestsFrame") and questGui.QuestsFrame.Visible then
-            local obj = questGui.QuestsFrame:FindFirstChild("QuestsScroll") and questGui.QuestsFrame.QuestsScroll:FindFirstChild("Objective")
-            if obj and obj.Text ~= "" then targetMobName = string.gsub(obj.Text, "%s*%d+/%d+$", "") end
-        end
+        local targetMobName = GetQuestMobName()
 
         if _G.Yui.AutoFarm and not _G.Yui.AutoHunt then
             pcall(function()
@@ -1136,6 +1217,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- AUTO LẤY CẦN VÀ CÂU CÁ
 task.spawn(function()
     while task.wait(0.5) do
         local char = LocalPlayer.Character if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
