@@ -1,5 +1,5 @@
 -- =========================================================================
--- AUTO QUEST (TÁCH THƯỜNG & DAILY) - CẬP NHẬT NÚT X & TỰ NHẬN DAILY
+-- AUTO QUEST - THÊM NÚT AUTO SAM RIÊNG & KÉO THẢ MƯỢT
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -14,6 +14,7 @@ for _, gui in pairs(CoreGui:GetChildren()) do if gui.Name == "AutoQuest_Mini" th
 -- Biến Global Tách Biệt
 _G.AutoNormal = false
 _G.AutoDaily = false
+_G.AutoSam = false -- Thêm biến cho Sam
 _G.SelectedNormal = ""
 _G.SelectedDaily = ""
 
@@ -41,7 +42,7 @@ ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 230, 0, 240)
+MainFrame.Size = UDim2.new(0, 230, 0, 275) -- Đã nới rộng chiều cao để chứa nút Sam
 MainFrame.Position = UDim2.new(0.5, -115, 0.2, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainFrame.Active = true
@@ -49,17 +50,17 @@ MainFrame.BorderSizePixel = 0
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(0, 170, 255)
 
--- Thanh Header
+-- Thanh Header (CẦM VÀO ĐÂY ĐỂ KÉO)
 local Header = Instance.new("Frame", MainFrame)
 Header.Size = UDim2.new(1, 0, 0, 30)
 Header.BackgroundTransparency = 1
 Header.Active = true
 
 local Title = Instance.new("TextLabel", Header)
-Title.Size = UDim2.new(1, -30, 1, 0) -- Chừa chỗ cho nút X
+Title.Size = UDim2.new(1, -30, 1, 0)
 Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "AUTO QUEST (THƯỜNG & DAILY)"
+Title.Text = "AUTO QUEST & SAM"
 Title.TextColor3 = Color3.fromRGB(0, 170, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 11
@@ -78,10 +79,11 @@ CloseBtn.TextSize = 13
 BindTap(CloseBtn, function()
     _G.AutoNormal = false
     _G.AutoDaily = false
+    _G.AutoSam = false
     ScreenGui:Destroy()
 end)
 
--- Kéo thả mượt mà (Giữ nguyên lõi của bạn)
+-- Kéo thả mượt mà (Hoạt động tốt trên cả PC & Mobile)
 local dragToggle, dragInput, dragStart, startPos
 Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -137,7 +139,7 @@ NormalDropBtn.TextSize = 10
 Instance.new("UICorner", NormalDropBtn).CornerRadius = UDim.new(0, 4)
 
 local NormalToggle = Instance.new("TextButton", ContentFrame)
-NormalToggle.Size = UDim2.new(0.9, 0, 0, 28)
+NormalToggle.Size = UDim2.new(0.9, 0, 0, 25)
 NormalToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 NormalToggle.Text = "Auto Thường [OFF]"
 NormalToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -156,13 +158,27 @@ DailyDropBtn.TextSize = 10
 Instance.new("UICorner", DailyDropBtn).CornerRadius = UDim.new(0, 4)
 
 local DailyToggle = Instance.new("TextButton", ContentFrame)
-DailyToggle.Size = UDim2.new(0.9, 0, 0, 28)
+DailyToggle.Size = UDim2.new(0.9, 0, 0, 25)
 DailyToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 DailyToggle.Text = "Auto Daily [OFF]"
 DailyToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 DailyToggle.Font = Enum.Font.GothamBold
 DailyToggle.TextSize = 11
 Instance.new("UICorner", DailyToggle).CornerRadius = UDim.new(0, 4)
+
+-- NÚT DÀNH RIÊNG CHO SAM
+local SamToggle = Instance.new("TextButton", ContentFrame)
+SamToggle.Size = UDim2.new(0.9, 0, 0, 28)
+SamToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SamToggle.Text = "Auto NPC Sam [OFF]"
+SamToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SamToggle.Font = Enum.Font.GothamBold
+SamToggle.TextSize = 11
+Instance.new("UICorner", SamToggle).CornerRadius = UDim.new(0, 4)
+-- Highlight viền cho nổi bật
+local SamStroke = Instance.new("UIStroke", SamToggle)
+SamStroke.Color = Color3.fromRGB(255, 85, 255)
+SamStroke.Thickness = 1
 
 -- HÀM TẠO SCROLLING FRAME
 local function CreateDropScroll(parentBtn)
@@ -223,7 +239,6 @@ BindTap(RefreshBtn, function()
     NormalScroll.CanvasSize = UDim2.new(0, 0, 0, hn)
     
     local hd = 0
-    -- Thêm nút Tự nhận Tất cả vào danh sách Daily
     local autoAllBtn = Instance.new("TextButton", DailyScroll)
     autoAllBtn.Size = UDim2.new(1, 0, 0, 30) autoAllBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 35) autoAllBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
     autoAllBtn.Text = "  [Tự Nhận Tất Cả]" autoAllBtn.Font = Enum.Font.GothamBold autoAllBtn.TextSize = 11 autoAllBtn.TextXAlignment = Enum.TextXAlignment.Left autoAllBtn.ZIndex = 11
@@ -255,8 +270,14 @@ BindTap(DailyToggle, function()
     DailyToggle.Text = "Auto Daily " .. (_G.AutoDaily and "[ON]" or "[OFF]")
 end)
 
+BindTap(SamToggle, function()
+    _G.AutoSam = not _G.AutoSam
+    SamToggle.BackgroundColor3 = _G.AutoSam and Color3.fromRGB(255, 85, 255) or Color3.fromRGB(40, 40, 40)
+    SamToggle.Text = "Auto NPC Sam " .. (_G.AutoSam and "[ON]" or "[OFF]")
+end)
+
 -- ============================
--- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG THÔNG MINH
+-- 4. BỘ NÃO NHẬN QUEST TỰ ĐỘNG
 -- ============================
 local function HasActiveQuest()
     local questGui = player.PlayerGui:FindFirstChild("QuestGui")
@@ -287,15 +308,37 @@ task.spawn(function()
         
         -- NHẬN TỪ XA
         if not HasActiveQuest() and (not dialogue or not dialogue.Visible) then
-            -- 1. ƯU TIÊN DAILY TRƯỚC (Hỗ trợ Tự động nhận tất cả)
+            
+            -- 1. ƯU TIÊN CAO NHẤT: AUTO SAM
+            if _G.AutoSam then
+                local foundSam = false
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    -- Tìm đúng tên "Sam"
+                    if obj.Name == "Sam" and obj:IsA("Model") and obj.Parent then
+                        local pName = string.lower(obj.Parent.Name)
+                        -- Phải nằm trong thư mục Quest
+                        if string.find(pName, "quest") then
+                            local root = obj:FindFirstChild("HumanoidRootPart")
+                            if root then
+                                local cd = root:FindFirstChildOfClass("ClickDetector")
+                                if cd and fireclickdetector then 
+                                    fireclickdetector(cd, 0) 
+                                    foundSam = true
+                                end
+                            end
+                        end
+                    end
+                end
+                if foundSam then continue end
+            end
+
+            -- 2. ƯU TIÊN TIẾP THEO: DAILY QUEST
             if _G.AutoDaily then
                 local foundDaily = false
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj:IsA("Model") and obj.Parent then
                         local pName = string.lower(obj.Parent.Name)
                         if string.find(pName, "quest") and string.find(pName, "daily") then
-                            -- Nếu _G.SelectedDaily rỗng ("") => Nhận bất kì NPC Daily nào
-                            -- Nếu có chọn tên => Nhận đúng tên
                             if _G.SelectedDaily == "" or _G.SelectedDaily == obj.Name then
                                 local root = obj:FindFirstChild("HumanoidRootPart")
                                 if root then
@@ -309,10 +352,10 @@ task.spawn(function()
                         end
                     end
                 end
-                if foundDaily then continue end -- Bỏ qua logic bên dưới để đợi xử lý bảng thoại
+                if foundDaily then continue end
             end
 
-            -- 2. SAU ĐÓ ĐẾN QUEST THƯỜNG (Bắt buộc phải chọn Tên)
+            -- 3. CUỐI CÙNG: QUEST THƯỜNG
             if _G.AutoNormal and _G.SelectedNormal ~= "" then
                 for _, obj in pairs(Workspace:GetDescendants()) do
                     if obj.Name == _G.SelectedNormal and obj:IsA("Model") and obj.Parent then
@@ -332,7 +375,7 @@ task.spawn(function()
             end
         end
 
-        -- TỰ ĐỘNG BẤM BẢNG THOẠI (GIỮ NGUYÊN HOẠT ĐỘNG TỐT CỦA BẠN)
+        -- TỰ ĐỘNG BẤM BẢNG THOẠI
         if dialogue and dialogue.Visible then
             pcall(function() dialogue.Position = UDim2.new(5, 0, 5, 0) end)
             local opts = dialogue:FindFirstChild("Options")
